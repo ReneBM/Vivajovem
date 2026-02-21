@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,9 @@ import {
   Save,
   Info,
   UserCheck,
+  ClipboardCopy,
+  ExternalLink,
+  FileText
 } from 'lucide-react';
 import { Evento } from '@/types/app-types';
 
@@ -38,10 +42,12 @@ interface Jovem {
   foto_url: string | null;
 }
 
-interface Presenca {
+interface InscriçãoEvento {
   id: string;
-  jovem_id: string;
-  presente: boolean;
+  slug: string;
+  ativa: boolean;
+  limite_vagas: number | null;
+  total_inscritos?: number;
 }
 
 const eventTypeColors: Record<string, string> = {
@@ -68,7 +74,9 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
   const [jovens, setJovens] = useState<Jovem[]>([]);
   const [presencas, setPresencas] = useState<Map<string, boolean>>(new Map());
   const [originalPresencas, setOriginalPresencas] = useState<Map<string, string>>(new Map()); // jovem_id -> presenca_id
+  const [inscricao, setInscricao] = useState<InscriçãoEvento | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingInscricao, setLoadingInscricao] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('info');
@@ -76,8 +84,39 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
   useEffect(() => {
     if (open && evento) {
       fetchJovensAndPresencas();
+      fetchInscricao();
     }
   }, [open, evento]);
+
+  async function fetchInscricao() {
+    if (!evento) return;
+    setLoadingInscricao(true);
+    try {
+      const { data, error } = await supabase
+        .from('inscricoes_evento')
+        .select('id, slug, ativa, limite_vagas')
+        .eq('evento_id', evento.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        // Count total participants for this registration form
+        const { count, error: countError } = await supabase
+          .from('inscricoes_evento_respostas')
+          .select('*', { count: 'exact', head: true })
+          .eq('inscricao_id', data.id);
+
+        setInscricao({ ...data, total_inscritos: count || 0 });
+      } else {
+        setInscricao(null);
+      }
+    } catch (error) {
+      console.error('Error fetching registration:', error);
+    } finally {
+      setLoadingInscricao(false);
+    }
+  }
 
   async function fetchJovensAndPresencas() {
     if (!evento) return;
@@ -118,6 +157,12 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
     } finally {
       setLoading(false);
     }
+  }
+
+  function copyToClipboard(slug: string) {
+    const url = `${window.location.origin}/inscricao/${slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copiado para a área de transferência!');
   }
 
   function togglePresenca(jovemId: string) {
@@ -197,7 +242,15 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">{evento.titulo}</DialogTitle>
+          <div className="flex items-center justify-between pr-8">
+            <DialogTitle className="font-display text-xl">{evento.titulo}</DialogTitle>
+            {inscricao && (
+              <Badge variant="success" className="gap-1">
+                <FileText className="w-3 h-3" />
+                Inscrições Ativas
+              </Badge>
+            )}
+          </div>
           <DialogDescription className="flex items-center gap-2">
             <Badge className={eventTypeColors[evento.tipo]}>
               {eventTypeLabels[evento.tipo]}
@@ -209,7 +262,7 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="info" className="gap-2">
               <Info className="w-4 h-4" />
               Informações
@@ -218,9 +271,13 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
               <UserCheck className="w-4 h-4" />
               Presença
             </TabsTrigger>
+            <TabsTrigger value="inscricao" className="gap-2">
+              <FileText className="w-4 h-4" />
+              Inscrição
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="info" className="mt-4 space-y-4">
+          <TabsContent value="info" className="mt-4 space-y-4 overflow-y-auto">
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <Calendar className="w-5 h-5 text-primary" />
@@ -251,86 +308,96 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
             </div>
           </TabsContent>
 
-          <TabsContent value="presenca" className="mt-4 flex-1 flex flex-col min-h-0">
-            {loading ? (
+          <TabsContent value="inscricao" className="mt-4 flex-1 flex flex-col min-h-0">
+            {loadingInscricao ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : (
-              <>
-                {/* Search */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar jovem..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <span className="text-sm text-muted-foreground">
-                    {filteredJovens.length} jovens encontrados
-                  </span>
-                  <Badge variant="outline" className="gap-1">
-                    <Check className="w-3 h-3" />
-                    {presentCount} presentes
-                  </Badge>
-                </div>
-
-                {/* Jovens List */}
-                <ScrollArea className="flex-1 -mx-6 px-6">
-                  <div className="space-y-2 pb-4">
-                    {filteredJovens.map((jovem) => {
-                      const isPresent = presencas.get(jovem.id);
-                      return (
-                        <div
-                          key={jovem.id}
-                          className={`
-                            flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all
-                            ${isPresent ? 'bg-success/10 border border-success/30' : 'bg-muted/50 hover:bg-muted'}
-                          `}
-                          onClick={() => togglePresenca(jovem.id)}
-                        >
-                          <Checkbox
-                            checked={isPresent || false}
-                            onCheckedChange={() => togglePresenca(jovem.id)}
-                          />
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={jovem.foto_url || undefined} />
-                            <AvatarFallback className="text-xs bg-accent/10 text-accent">
-                              {getInitials(jovem.nome)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="flex-1 font-medium text-sm">{jovem.nome}</span>
-                          {isPresent && (
-                            <Check className="w-4 h-4 text-success" />
-                          )}
-                        </div>
-                      );
-                    })}
+            ) : inscricao ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl border border-success/30 bg-success/5 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-success flex items-center gap-2">
+                        <Check className="w-4 h-4" />
+                        Página de Inscrição Ativa
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Participantes podem se inscrever publicamente para este evento.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="bg-background">
+                      {inscricao.total_inscritos} / {inscricao.limite_vagas || '∞'}
+                    </Badge>
                   </div>
-                </ScrollArea>
 
-                {/* Save Button */}
-                <div className="pt-4 border-t mt-auto">
-                  <Button
-                    onClick={savePresencas}
-                    disabled={saving}
-                    className="w-full"
-                    variant="hero"
-                  >
-                    {saving ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    Salvar Presenças
-                  </Button>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Link Público</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={`${window.location.origin}/inscricao/${inscricao.slug}`}
+                        className="bg-background/50 text-xs h-8"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => copyToClipboard(inscricao.slug)}
+                      >
+                        <ClipboardCopy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        asChild
+                      >
+                        <a href={`/inscricao/${inscricao.slug}`} target="_blank" rel="noreferrer">
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <p className="text-[10px] uppercase text-muted-foreground mb-1">Total de Inscritos</p>
+                    <p className="text-xl font-bold">{inscricao.total_inscritos}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <p className="text-[10px] uppercase text-muted-foreground mb-1">Vagas Restantes</p>
+                    <p className="text-xl font-bold">
+                      {inscricao.limite_vagas ? Math.max(0, inscricao.limite_vagas - (inscricao.total_inscritos || 0)) : 'Ilimitado'}
+                    </p>
+                  </div>
+                </div>
+
+                <Button variant="outline" className="w-full gap-2" asChild>
+                  <a href="/eventos?tab=inscricoes">
+                    <Users className="w-4 h-4" />
+                    Gerenciar Participantes
+                  </a>
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <FileText className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <div className="max-w-[280px]">
+                  <h3 className="font-semibold">Nenhuma inscrição ativa</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Você ainda não criou um formulário de inscrição para este evento.
+                  </p>
+                </div>
+                <Button variant="hero" asChild>
+                  <a href="/eventos?tab=inscricoes">
+                    Criar Formulário
+                  </a>
+                </Button>
+              </div>
             )}
           </TabsContent>
         </Tabs>

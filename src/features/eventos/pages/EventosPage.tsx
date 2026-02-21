@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,7 +72,6 @@ export default function Eventos() {
   const [recorrentes, setRecorrentes] = useState<EventoRecorrente[]>([]);
   const [tiposEvento, setTiposEvento] = useState<TipoEvento[]>([]);
   const [grupos, setGrupos] = useState<Grupo[]>([]);
-  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('calendario');
 
@@ -102,13 +102,13 @@ export default function Eventos() {
 
   // Evento form
   const [formData, setFormData] = useState({
-    titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: '', grupo_id: '', campanha_id: '',
+    titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: '', grupo_id: '',
   });
 
   // Recorrente form
   const today = format(new Date(), 'yyyy-MM-dd');
   const [recFormData, setRecFormData] = useState({
-    titulo: '', descricao: '', hora_evento: '19:00', tipo: '', grupo_id: '', campanha_id: '',
+    titulo: '', descricao: '', hora_evento: '19:00', tipo: '', grupo_id: '',
   });
   const [recConfig, setRecConfig] = useState<RecorrenciaConfigType>({
     tipo_recorrencia: 'SEMANAL', dia_semana: 5, data_inicio: today, data_fim: null,
@@ -143,7 +143,7 @@ export default function Eventos() {
 
   async function fetchAll() {
     setLoading(true);
-    await Promise.all([fetchEventos(currentMonth), fetchRecorrentes(), fetchTiposEvento(), fetchGrupos(), fetchCampanhas()]);
+    await Promise.all([fetchEventos(currentMonth), fetchRecorrentes(), fetchTiposEvento(), fetchGrupos()]);
     setLoading(false);
   }
 
@@ -153,7 +153,7 @@ export default function Eventos() {
       const fimMes = endOfMonth(month).toISOString();
       const { data, error } = await supabase
         .from('eventos')
-        .select('*, grupos(nome), campanhas(nome)')
+        .select('*, grupos(nome)')
         .gte('data_evento', inicioMes)
         .lte('data_evento', fimMes)
         .order('data_evento', { ascending: true });
@@ -178,14 +178,6 @@ export default function Eventos() {
     } catch (error) { console.error('Error fetching tipos_evento:', error); }
   }
 
-  async function fetchCampanhas() {
-    try {
-      const { data, error } = await supabase.from('campanhas').select('id, nome').eq('ativa', true).order('nome');
-      if (error) throw error;
-      setCampanhas(data || []);
-    } catch (error) { console.error('Error fetching campanhas:', error); }
-  }
-
   async function fetchGrupos() {
     try {
       const { data, error } = await supabase.from('grupos').select('id, nome').eq('ativo', true).order('nome');
@@ -198,7 +190,7 @@ export default function Eventos() {
 
   function resetForm() {
     const defaultTipo = tiposEvento.length > 0 ? tiposEvento[0].nome : '';
-    setFormData({ titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: defaultTipo, grupo_id: '', campanha_id: '' });
+    setFormData({ titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: defaultTipo, grupo_id: '' });
     setEditingEvento(null);
   }
 
@@ -207,7 +199,7 @@ export default function Eventos() {
     const parsedDate = parseISO(evento.data_evento);
     setFormData({
       titulo: evento.titulo, descricao: evento.descricao || '', data_evento: format(parsedDate, 'yyyy-MM-dd'),
-      hora_evento: format(parsedDate, 'HH:mm'), tipo: evento.tipo, grupo_id: evento.grupo_id || '', campanha_id: evento.campanha_id || '',
+      hora_evento: format(parsedDate, 'HH:mm'), tipo: evento.tipo, grupo_id: evento.grupo_id || '',
     });
     setIsDialogOpen(true);
   }
@@ -217,16 +209,22 @@ export default function Eventos() {
     setIsSubmitting(true);
     try {
       const dataEvento = new Date(`${formData.data_evento}T${formData.hora_evento}`);
-      const payload: Record<string, unknown> = {
-        titulo: formData.titulo, descricao: formData.descricao || null, data_evento: dataEvento.toISOString(),
-        tipo: formData.tipo, grupo_id: formData.grupo_id || null, campanha_id: formData.campanha_id || null,
+      const selectedTipo = tiposEvento.find(t => t.nome === formData.tipo);
+      const payload: Database['public']['Tables']['eventos']['Insert'] = {
+        titulo: formData.titulo,
+        descricao: formData.descricao || null,
+        data_evento: dataEvento.toISOString(),
+        tipo: formData.tipo,
+        tipo_id: selectedTipo?.id || null,
+        grupo_id: formData.grupo_id || null,
+        campanha_id: null,
       };
       if (editingEvento) {
         const { error } = await supabase.from('eventos').update(payload).eq('id', editingEvento.id);
         if (error) throw error;
         toast.success('Evento atualizado com sucesso!');
       } else {
-        const { error } = await supabase.from('eventos').insert([payload]);
+        const { error } = await supabase.from('eventos').insert(payload);
         if (error) throw error;
         toast.success('Evento criado com sucesso!');
       }
@@ -252,7 +250,7 @@ export default function Eventos() {
 
   function resetRecForm() {
     const defaultTipo = tiposEvento.length > 0 ? tiposEvento[0].nome : '';
-    setRecFormData({ titulo: '', descricao: '', hora_evento: '19:00', tipo: defaultTipo, grupo_id: '', campanha_id: '' });
+    setRecFormData({ titulo: '', descricao: '', hora_evento: '19:00', tipo: defaultTipo, grupo_id: '' });
     setRecConfig({ tipo_recorrencia: 'SEMANAL', dia_semana: 5, data_inicio: today, data_fim: null });
   }
 
@@ -260,12 +258,22 @@ export default function Eventos() {
     e.preventDefault();
     setIsRecSubmitting(true);
     try {
-      const rulePayload: Record<string, unknown> = {
-        titulo: recFormData.titulo, descricao: recFormData.descricao || null, tipo: recFormData.tipo,
-        grupo_id: recFormData.grupo_id || null, campanha_id: recFormData.campanha_id || null, hora_evento: recFormData.hora_evento,
-        tipo_recorrencia: recConfig.tipo_recorrencia, dia_semana: recConfig.dia_semana ?? null,
-        intervalo_dias: recConfig.intervalo_dias ?? null, posicao_no_mes: recConfig.posicao_no_mes ?? null,
-        dia_do_mes: recConfig.dia_do_mes ?? null, data_inicio: recConfig.data_inicio, data_fim: recConfig.data_fim || null,
+      const selectedTipo = tiposEvento.find(t => t.nome === recFormData.tipo);
+      const rulePayload: Database['public']['Tables']['eventos_recorrentes']['Insert'] = {
+        titulo: recFormData.titulo,
+        descricao: recFormData.descricao || null,
+        tipo: recFormData.tipo,
+        tipo_id: selectedTipo?.id || null,
+        grupo_id: recFormData.grupo_id || null,
+        campanha_id: null,
+        hora_evento: recFormData.hora_evento,
+        tipo_recorrencia: recConfig.tipo_recorrencia,
+        dia_semana: recConfig.dia_semana ?? null,
+        intervalo_dias: recConfig.intervalo_dias ?? null,
+        posicao_no_mes: recConfig.posicao_no_mes ?? null,
+        dia_do_mes: recConfig.dia_do_mes ?? null,
+        data_inicio: recConfig.data_inicio,
+        data_fim: recConfig.data_fim || null,
       };
       const { data: ruleData, error: ruleError } = await supabase.from('eventos_recorrentes').insert(rulePayload).select('id').single();
       if (ruleError) throw ruleError;
@@ -278,8 +286,14 @@ export default function Eventos() {
       const eventPayloads = dates.map(date => {
         const eventDate = new Date(date); eventDate.setHours(hours, minutes, 0, 0);
         return {
-          titulo: recFormData.titulo, descricao: recFormData.descricao || null, data_evento: eventDate.toISOString(),
-          tipo: recFormData.tipo, grupo_id: recFormData.grupo_id || null, campanha_id: recFormData.campanha_id || null, recorrente_id: ruleData.id
+          titulo: recFormData.titulo,
+          descricao: recFormData.descricao || null,
+          data_evento: eventDate.toISOString(),
+          tipo: recFormData.tipo,
+          tipo_id: selectedTipo?.id || null,
+          grupo_id: recFormData.grupo_id || null,
+          campanha_id: null,
+          recorrente_id: ruleData.id
         };
       });
       const { error: eventsError } = await supabase.from('eventos').insert(eventPayloads);
@@ -324,7 +338,7 @@ export default function Eventos() {
           const [hours, mins] = rec.hora_evento.substring(0, 5).split(':').map(Number);
           const payloads = dates.map(date => {
             const d = new Date(date); d.setHours(hours, mins, 0, 0);
-            return { titulo: rec.titulo, descricao: rec.descricao || null, data_evento: d.toISOString(), tipo: rec.tipo, grupo_id: rec.grupo_id || null, campanha_id: rec.campanha_id || null, recorrente_id: rec.id };
+            return { titulo: rec.titulo, descricao: rec.descricao || null, data_evento: d.toISOString(), tipo: rec.tipo, grupo_id: rec.grupo_id || null, campanha_id: null, recorrente_id: rec.id };
           });
           const { error: ie } = await supabase.from('eventos').insert(payloads);
           if (ie) throw ie;
@@ -409,7 +423,6 @@ export default function Eventos() {
             onRecConfigChange={setRecConfig}
             tiposEvento={tiposEvento}
             grupos={grupos}
-            campanhas={campanhas}
             isSubmitting={isRecSubmitting}
             onSubmit={handleRecSubmit}
             onReset={resetRecForm}
@@ -421,7 +434,6 @@ export default function Eventos() {
             onFormChange={setFormData}
             tiposEvento={tiposEvento}
             grupos={grupos}
-            campanhas={campanhas}
             isEditing={!!editingEvento}
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}

@@ -28,7 +28,6 @@ interface EventoFormData {
     hora_evento: string;
     tipo: string;
     grupo_id: string;
-    campanha_id: string;
 }
 
 interface EventoFormDialogProps {
@@ -38,7 +37,6 @@ interface EventoFormDialogProps {
     onFormChange: (data: EventoFormData) => void;
     tiposEvento: TipoEvento[];
     grupos: Grupo[];
-    campanhas: Campanha[];
     isEditing: boolean;
     isSubmitting: boolean;
     onSubmit: (e: React.FormEvent) => void;
@@ -52,7 +50,6 @@ export default function EventoFormDialog({
     onFormChange,
     tiposEvento,
     grupos,
-    campanhas,
     isEditing,
     isSubmitting,
     onSubmit,
@@ -117,16 +114,6 @@ export default function EventoFormDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Campanha (opcional)</Label>
-                        <Select value={formData.campanha_id} onValueChange={(v) => onFormChange({ ...formData, campanha_id: v === 'none' ? '' : v })}>
-                            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhuma</SelectItem>
-                                {campanhas.map(c => (<SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>))}
-                            </SelectContent>
-                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label>Descrição</Label>

@@ -1,8 +1,10 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface CreateUserRequest {
@@ -12,10 +14,10 @@ interface CreateUserRequest {
     role_ids?: string[];
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
-        return new Response("ok", { headers: corsHeaders });
+        return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     try {
@@ -41,21 +43,33 @@ Deno.serve(async (req) => {
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Verificar se o usuário que fez a requisição está autenticado
-        const authHeader = req.headers.get("Authorization");
+        // Verificar autenticação de forma mais robusta
+        const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+
         if (!authHeader) {
+            console.error("Auth header missing in request");
             return new Response(
-                JSON.stringify({ error: "Não autorizado" }),
+                JSON.stringify({
+                    error: "Não autorizado: Token ausente",
+                    code: "auth_header_missing",
+                    headers_received: Array.from(req.headers.keys())
+                }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const token = authHeader.replace("Bearer ", "");
+        const token = authHeader.replace(/^Bearer\s+/, "");
         const { data: { user: callerUser }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !callerUser) {
+            console.error("Auth error:", authError);
             return new Response(
-                JSON.stringify({ error: "Token inválido ou sessão expirada" }),
+                JSON.stringify({
+                    error: "Não autorizado: Token inválido ou expirado",
+                    code: "invalid_token",
+                    details: authError?.message || "Usuário não encontrado",
+                    token_preview: token.substring(0, 5) + "..."
+                }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }

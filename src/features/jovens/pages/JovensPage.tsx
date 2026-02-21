@@ -346,7 +346,7 @@ export default function Jovens() {
                     <SelectItem value="SOLTEIRO">Solteiro(a)</SelectItem>
                     <SelectItem value="ORANDO">Orando</SelectItem>
                     <SelectItem value="NAMORANDO">Namorando</SelectItem>
-                    <SelectItem value="NOIVO">Noivo(a)</SelectItem>
+                    <SelectItem value="NOIVADO">Noivo(a)</SelectItem>
                     <SelectItem value="CASADO">Casado(a)</SelectItem>
                   </SelectContent>
                 </Select>

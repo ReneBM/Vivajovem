@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, GripVertical, User, Phone, Mail, Calendar, Heart, MapPin, Instagram, Church, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, GripVertical, User, Phone, Mail, Calendar, Heart, MapPin, Instagram, Church, AlertTriangle, CreditCard } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,7 @@ export interface FieldConfig {
 
 export const DEFAULT_FIELDS: FieldConfig[] = [
   { id: 'nome', label: 'Nome completo', type: 'text', required: true, enabled: true, placeholder: 'Digite seu nome completo', icon: 'user' },
+  { id: 'cpf', label: 'CPF', type: 'text', required: false, enabled: false, placeholder: '000.000.000-00', icon: 'creditcard' },
   { id: 'telefone', label: 'Telefone (WhatsApp)', type: 'tel', required: false, enabled: true, placeholder: '(00) 00000-0000', icon: 'phone' },
   { id: 'email', label: 'E-mail', type: 'email', required: false, enabled: true, placeholder: 'seu@email.com', icon: 'mail' },
   { id: 'data_nascimento', label: 'Data de nascimento', type: 'date', required: false, enabled: true, icon: 'calendar' },
@@ -41,6 +42,7 @@ export const DEFAULT_FIELDS: FieldConfig[] = [
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   user: <User className="w-4 h-4" />,
+  creditcard: <CreditCard className="w-4 h-4" />,
   phone: <Phone className="w-4 h-4" />,
   mail: <Mail className="w-4 h-4" />,
   calendar: <Calendar className="w-4 h-4" />,
@@ -60,14 +62,14 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
   const [fieldToDelete, setFieldToDelete] = useState<FieldConfig | null>(null);
 
   const toggleField = (fieldId: string) => {
-    const updated = fields.map(f => 
+    const updated = fields.map(f =>
       f.id === fieldId ? { ...f, enabled: !f.enabled } : f
     );
     onChange(updated);
   };
 
   const toggleRequired = (fieldId: string) => {
-    const updated = fields.map(f => 
+    const updated = fields.map(f =>
       f.id === fieldId ? { ...f, required: !f.required } : f
     );
     onChange(updated);
@@ -75,7 +77,7 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
 
   const addCustomField = () => {
     if (!customFieldLabel.trim()) return;
-    
+
     const newField: FieldConfig = {
       id: `custom_${Date.now()}`,
       label: customFieldLabel,
@@ -85,7 +87,7 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
       placeholder: `Digite ${customFieldLabel.toLowerCase()}`,
       icon: 'heart',
     };
-    
+
     onChange([...fields, newField]);
     setCustomFieldLabel('');
   };
@@ -112,11 +114,10 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
         {fields.map((field) => (
           <div
             key={field.id}
-            className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-              field.enabled 
-                ? 'bg-primary/5 border-primary/20' 
-                : 'bg-muted/30 border-border/50 opacity-60'
-            }`}
+            className={`flex items-center justify-between p-3 rounded-lg border transition-all ${field.enabled
+              ? 'bg-primary/5 border-primary/20'
+              : 'bg-muted/30 border-border/50 opacity-60'
+              }`}
           >
             <div className="flex items-center gap-3">
               <Checkbox
@@ -128,8 +129,8 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
               <div className="flex items-center gap-2 text-muted-foreground">
                 {ICON_MAP[field.icon || 'heart']}
               </div>
-              <Label 
-                htmlFor={`field-${field.id}`} 
+              <Label
+                htmlFor={`field-${field.id}`}
                 className={`cursor-pointer ${field.enabled ? 'text-foreground' : 'text-muted-foreground'}`}
               >
                 {field.label}
@@ -138,7 +139,7 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
                 <span className="text-xs text-muted-foreground">(obrigatório)</span>
               )}
             </div>
-            
+
             <div className="flex items-center gap-3">
               {field.enabled && field.id !== 'nome' && (
                 <div className="flex items-center gap-2">

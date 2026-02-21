@@ -51,6 +51,7 @@ export interface RespostaInscricao extends Omit<RespostaRow, 'dados'> {
 
 export const DEFAULT_FIELD_CONFIG: FieldConfig[] = [
     { id: 'nome', label: 'Nome completo', type: 'text', required: true, enabled: true, placeholder: 'Digite seu nome completo', icon: 'user' },
+    { id: 'cpf', label: 'CPF', type: 'text', required: false, enabled: false, placeholder: '000.000.000-00', icon: 'creditcard' },
     { id: 'telefone', label: 'Telefone (WhatsApp)', type: 'tel', required: false, enabled: true, placeholder: '(00) 00000-0000', icon: 'phone' },
     { id: 'email', label: 'E-mail', type: 'email', required: false, enabled: true, placeholder: 'seu@email.com', icon: 'mail' },
     { id: 'data_nascimento', label: 'Data de nascimento', type: 'date', required: false, enabled: false, icon: 'calendar' },

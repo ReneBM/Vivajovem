@@ -73,7 +73,7 @@ const statusRelacionamentoLabels: Record<string, string> = {
   SOLTEIRO: 'Solteiro(a)',
   ORANDO: 'Orando',
   NAMORANDO: 'Namorando',
-  NOIVO: 'Noivo(a)',
+  NOIVADO: 'Noivo(a)',
   CASADO: 'Casado(a)',
 };
 
@@ -393,7 +393,7 @@ export function FichaCadastral({ jovem, open, onOpenChange, onUpdate }: FichaCad
                         <SelectItem value="SOLTEIRO">Solteiro(a)</SelectItem>
                         <SelectItem value="ORANDO">Orando</SelectItem>
                         <SelectItem value="NAMORANDO">Namorando</SelectItem>
-                        <SelectItem value="NOIVO">Noivo(a)</SelectItem>
+                        <SelectItem value="NOIVADO">Noivo(a)</SelectItem>
                         <SelectItem value="CASADO">Casado(a)</SelectItem>
                       </SelectContent>
                     </Select>

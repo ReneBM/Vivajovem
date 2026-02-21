@@ -10,9 +10,9 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, CheckCircle, Megaphone, Calendar, User, Phone, Mail,
-  MapPin, Heart, Instagram, Church, ArrowRight, Star, Zap, Users
+  MapPin, Heart, Instagram, Church, ArrowRight, Star, Zap, Users, CreditCard, AlertTriangle
 } from 'lucide-react';
-import { formatPhoneNumber } from '@/lib/formatters';
+import { formatPhoneNumber, formatCPF } from '@/lib/formatters';
 import logoViva from '@/assets/slogan-somosum.png';
 import type { FieldConfig } from '@/features/campanhas/components/CampaignFieldsConfig';
 import { DEFAULT_FIELDS } from '@/features/campanhas/components/CampaignFieldsConfig';
@@ -25,7 +25,8 @@ interface Campanha {
   cor_fundo: string | null;
   imagem_capa_url: string | null;
   ativa: boolean;
-  campos_personalizados: unknown;
+  campos_personalizados: any;
+  slug: string;
 }
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -72,10 +73,10 @@ export default function InscricaoCampanha() {
         .select('*')
         .eq('slug', slug)
         .eq('ativa', true)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      setCampanha(data);
+      setCampanha(data as Campanha);
     } catch (error) {
       console.error('Error fetching campanha:', error);
       toast.error('Campanha não encontrada');
@@ -90,72 +91,58 @@ export default function InscricaoCampanha() {
     setIsSubmitting(true);
 
     try {
-      // Clean phone number for search
+      // Clean data for search
       const rawPhone = formData.telefone ? formData.telefone.replace(/\D/g, '') : null;
+      const rawCPF = formData.cpf ? formData.cpf.replace(/\D/g, '') : null;
+
       let jovemId: string;
       let wasUpdated = false;
 
-      // 1. Check if user exists by phone
-      if (rawPhone) {
-        // Try precise match first (assuming database stores raw or formatted)
-        // Ideally we should store raw numbers or consistently formatted ones.
-        // Here we attempt to find by matching the phone number in the connection.
-        const { data: existingJovens } = await supabase
+      // 1. Check if user exists (Priority: CPF > Phone)
+      let existingJovem = null;
+
+      if (rawCPF) {
+        const { data } = await supabase
           .from('jovens')
           .select('id')
-          .eq('telefone', formData.telefone) // Try exact match first
-          .limit(1);
+          .eq('cpf', rawCPF)
+          .maybeSingle();
+        existingJovem = data;
+      }
 
-        if (existingJovens && existingJovens.length > 0) {
-          // UPDATE existing
-          jovemId = existingJovens[0].id;
-          wasUpdated = true;
+      if (!existingJovem && rawPhone) {
+        const { data } = await supabase
+          .from('jovens')
+          .select('id')
+          .eq('telefone', formData.telefone) // Using formatted phone as stored in DB currently
+          .maybeSingle();
+        existingJovem = data;
+      }
 
-          const updatePayload: any = {
-            nome: formData.nome, // Update name just in case
-            updated_at: new Date().toISOString(),
-          };
+      const commonPayload: any = {
+        nome: formData.nome,
+        telefone: formData.telefone || null,
+        cpf: rawCPF,
+        data_nascimento: formData.data_nascimento || null,
+        batizado: formData.batizado === 'Sim',
+        updated_at: new Date().toISOString(),
+      };
 
-          if (formData.data_nascimento) updatePayload.data_nascimento = formData.data_nascimento;
-          if (formData.batizado) updatePayload.batizado = formData.batizado === 'Sim';
-          if (formData.instagram) updatePayload.redes_sociais = { instagram: formData.instagram };
+      if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
 
-          await supabase.from('jovens').update(updatePayload).eq('id', jovemId);
-        } else {
-          // CREATE new
-          const jovemPayload = {
-            nome: formData.nome as string,
-            telefone: (formData.telefone as string) || null,
-            data_nascimento: (formData.data_nascimento as string) || null,
-            batizado: formData.batizado === 'Sim',
-            status: 'ATIVO' as const,
-            redes_sociais: formData.instagram ? { instagram: formData.instagram } : {},
-          };
-
-          const { data: newJovem, error: createError } = await supabase
-            .from('jovens')
-            .insert(jovemPayload)
-            .select()
-            .single();
-
-          if (createError) throw createError;
-          jovemId = newJovem.id;
-        }
+      if (existingJovem) {
+        // UPDATE existing
+        jovemId = existingJovem.id;
+        wasUpdated = true;
+        await supabase.from('jovens').update(commonPayload).eq('id', jovemId);
       } else {
-        // No phone provided, always create new (or handle differently?)
-        // Assuming creation for now since we can't dedup easily without phone
-        const jovemPayload = {
-          nome: formData.nome as string,
-          telefone: null,
-          data_nascimento: (formData.data_nascimento as string) || null,
-          batizado: formData.batizado === 'Sim',
-          status: 'ATIVO' as const,
-          redes_sociais: formData.instagram ? { instagram: formData.instagram } : {},
-        };
-
+        // CREATE new
         const { data: newJovem, error: createError } = await supabase
           .from('jovens')
-          .insert(jovemPayload)
+          .insert({
+            ...commonPayload,
+            status: 'ATIVO' as const,
+          })
           .select()
           .single();
 
@@ -218,7 +205,8 @@ export default function InscricaoCampanha() {
     );
   }
 
-  if (!campanha) {
+  // Se houver erro de carregamento da campanha
+  if (!campanha && !loading) {
     return (
       <div
         className="min-h-screen flex flex-col items-center justify-center p-4"
@@ -226,12 +214,12 @@ export default function InscricaoCampanha() {
       >
         <div className="text-center max-w-md">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center mx-auto mb-8 relative">
-            <Megaphone className="w-12 h-12 text-red-400" />
+            <AlertTriangle className="w-12 h-12 text-red-400" />
             <div className="absolute inset-0 rounded-full bg-red-500/20 blur-2xl" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">Campanha não encontrada</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">Ops!</h1>
           <p className="text-white/50 text-lg mb-10">
-            Esta campanha não existe, foi encerrada ou o link está incorreto.
+            Campanha não encontrada ou link inválido.
           </p>
           <Button
             onClick={() => navigate('/')}
@@ -493,13 +481,17 @@ export default function InscricaoCampanha() {
                         value={
                           field.id === 'telefone'
                             ? formatPhoneNumber(formData[field.id] || '')
-                            : formData[field.id] || ''
+                            : field.id === 'cpf'
+                              ? formatCPF(formData[field.id] || '')
+                              : formData[field.id] || ''
                         }
                         onChange={(e) => setFormData({
                           ...formData,
                           [field.id]: field.id === 'telefone'
                             ? formatPhoneNumber(e.target.value)
-                            : e.target.value
+                            : field.id === 'cpf'
+                              ? formatCPF(e.target.value)
+                              : e.target.value
                         })}
                         placeholder={field.placeholder}
                         required={field.required}

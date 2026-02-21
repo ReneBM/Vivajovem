@@ -113,6 +113,7 @@ export type Database = {
                     descricao: string | null
                     data_evento: string
                     tipo: string
+                    tipo_id: string | null
                     grupo_id: string | null
                     campanha_id: string | null
                     criado_por: string | null
@@ -126,6 +127,7 @@ export type Database = {
                     descricao?: string | null
                     data_evento: string
                     tipo?: string
+                    tipo_id?: string | null
                     grupo_id?: string | null
                     campanha_id?: string | null
                     criado_por?: string | null
@@ -139,6 +141,7 @@ export type Database = {
                     descricao?: string | null
                     data_evento?: string
                     tipo?: string
+                    tipo_id?: string | null
                     grupo_id?: string | null
                     campanha_id?: string | null
                     criado_por?: string | null
@@ -147,6 +150,13 @@ export type Database = {
                     updated_at?: string
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "eventos_tipo_id_fkey"
+                        columns: ["tipo_id"]
+                        isOneToOne: false
+                        referencedRelation: "tipos_evento"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "eventos_grupo_id_fkey"
                         columns: ["grupo_id"]
@@ -645,19 +655,28 @@ export type Database = {
                 Row: {
                     id: string
                     nucleo_id: string
-                    lider_id: string
+                    tipo_membro: string
+                    lider_id: string | null
+                    jovem_id: string | null
+                    nome_externo: string | null
                     created_at: string
                 }
                 Insert: {
                     id?: string
                     nucleo_id: string
-                    lider_id: string
+                    tipo_membro?: string
+                    lider_id?: string | null
+                    jovem_id?: string | null
+                    nome_externo?: string | null
                     created_at?: string
                 }
                 Update: {
                     id?: string
                     nucleo_id?: string
-                    lider_id?: string
+                    tipo_membro?: string
+                    lider_id?: string | null
+                    jovem_id?: string | null
+                    nome_externo?: string | null
                     created_at?: string
                 }
                 Relationships: [
@@ -673,6 +692,13 @@ export type Database = {
                         columns: ["lider_id"]
                         isOneToOne: false
                         referencedRelation: "lideres"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "nucleo_membros_jovem_id_fkey"
+                        columns: ["jovem_id"]
+                        isOneToOne: false
+                        referencedRelation: "jovens"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -931,6 +957,114 @@ export type Database = {
                     updated_at?: string
                 }
                 Relationships: []
+            }
+            whatsapp_templates: {
+                Row: {
+                    id: string
+                    nome: string
+                    mensagem: string
+                    categoria: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    nome: string
+                    mensagem: string
+                    categoria?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    nome?: string
+                    mensagem?: string
+                    categoria?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            jovens_observacoes: {
+                Row: {
+                    id: string
+                    jovem_id: string
+                    lider_id: string | null
+                    texto: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    jovem_id: string
+                    lider_id?: string | null
+                    texto: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    jovem_id?: string
+                    lider_id?: string | null
+                    texto?: string
+                    created_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "jovens_observacoes_jovem_id_fkey"
+                        columns: ["jovem_id"]
+                        isOneToOne: false
+                        referencedRelation: "jovens"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "jovens_observacoes_lider_id_fkey"
+                        columns: ["lider_id"]
+                        isOneToOne: false
+                        referencedRelation: "lideres"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            grupo_observacoes: {
+                Row: {
+                    id: string
+                    grupo_id: string
+                    jovem_id: string
+                    texto: string
+                    created_by: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    grupo_id: string
+                    jovem_id: string
+                    texto: string
+                    created_by?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    grupo_id?: string
+                    jovem_id?: string
+                    texto?: string
+                    created_by?: string | null
+                    created_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "grupo_observacoes_grupo_id_fkey"
+                        columns: ["grupo_id"]
+                        isOneToOne: false
+                        referencedRelation: "grupos"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "grupo_observacoes_jovem_id_fkey"
+                        columns: ["jovem_id"]
+                        isOneToOne: false
+                        referencedRelation: "jovens"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
         }
         Views: Record<string, never>

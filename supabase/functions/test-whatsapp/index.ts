@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 interface WhatsAppConfig {
@@ -14,7 +15,7 @@ interface WhatsAppConfig {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -31,28 +32,28 @@ serve(async (req) => {
 
     if (configError || !configData) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           connected: false,
           error: "WhatsApp API não configurada",
           details: "Configure a API do WhatsApp em Configurações > APIs"
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
 
     if (!configData.ativa) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           connected: false,
           error: "WhatsApp API desativada",
           details: "Ative a API do WhatsApp nas configurações"
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
@@ -61,21 +62,21 @@ serve(async (req) => {
 
     if (!config.phone_number_id || !config.access_token) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           connected: false,
           error: "Configuração incompleta",
           details: "Phone Number ID e Access Token são obrigatórios"
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
 
     // Test connection by getting phone number details
     const testUrl = `https://graph.facebook.com/v18.0/${config.phone_number_id}`;
-    
+
     const response = await fetch(testUrl, {
       method: "GET",
       headers: {
@@ -87,7 +88,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error("WhatsApp API test error:", responseData);
-      
+
       let errorMessage = "Erro ao conectar";
       if (responseData.error?.code === 190) {
         errorMessage = "Token de acesso inválido ou expirado";
@@ -98,14 +99,14 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           connected: false,
           error: errorMessage,
           code: responseData.error?.code
         }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
@@ -113,28 +114,28 @@ serve(async (req) => {
     console.log("WhatsApp connection test successful:", responseData);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         connected: true,
         phone_number: responseData.display_phone_number || responseData.verified_name,
         verified_name: responseData.verified_name,
         quality_rating: responseData.quality_rating,
         platform_type: responseData.platform_type
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   } catch (error) {
     console.error("Edge function error:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         connected: false,
-        error: error instanceof Error ? error.message : "Erro interno" 
+        error: error instanceof Error ? error.message : "Erro interno"
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }

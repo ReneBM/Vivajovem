@@ -31,7 +31,6 @@ interface RecFormData {
     hora_evento: string;
     tipo: string;
     grupo_id: string;
-    campanha_id: string;
 }
 
 interface RecorrenteFormDialogProps {
@@ -43,7 +42,6 @@ interface RecorrenteFormDialogProps {
     onRecConfigChange: (config: RecorrenciaConfigType) => void;
     tiposEvento: TipoEvento[];
     grupos: Grupo[];
-    campanhas: Campanha[];
     isSubmitting: boolean;
     onSubmit: (e: React.FormEvent) => void;
     onReset: () => void;
@@ -58,7 +56,6 @@ export default function RecorrenteFormDialog({
     onRecConfigChange,
     tiposEvento,
     grupos,
-    campanhas,
     isSubmitting,
     onSubmit,
     onReset,
@@ -124,16 +121,6 @@ export default function RecorrenteFormDialog({
                             <SelectContent>
                                 <SelectItem value="none">Geral (todos)</SelectItem>
                                 {grupos.map(g => (<SelectItem key={g.id} value={g.id}>{g.nome}</SelectItem>))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Campanha (opcional)</Label>
-                        <Select value={formData.campanha_id} onValueChange={(v) => onFormChange({ ...formData, campanha_id: v === 'none' ? '' : v })}>
-                            <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhuma</SelectItem>
-                                {campanhas.map(c => (<SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>))}
                             </SelectContent>
                         </Select>
                     </div>

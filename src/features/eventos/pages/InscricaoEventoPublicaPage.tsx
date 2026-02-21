@@ -26,14 +26,17 @@ import {
     Heart,
     Instagram,
     AlertTriangle,
+    CreditCard
 } from 'lucide-react';
 
 import { FieldConfig, InscricaoEvento } from '@/types/app-types';
+import { formatPhoneNumber, formatCPF } from '@/lib/formatters';
 
 type InscricaoData = InscricaoEvento;
 
 const ICON_MAP: Record<string, React.ReactNode> = {
     user: <User className="w-4 h-4" />,
+    creditcard: <CreditCard className="w-4 h-4" />,
     phone: <Phone className="w-4 h-4" />,
     mail: <Mail className="w-4 h-4" />,
     calendar: <Calendar className="w-4 h-4" />,
@@ -276,8 +279,21 @@ export default function InscricaoEventoPublicaPage() {
                                             </Label>
                                             <Input
                                                 type={field.type}
-                                                value={formData[field.id] || ''}
-                                                onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                                                value={
+                                                    field.id === 'telefone'
+                                                        ? formatPhoneNumber(formData[field.id] || '')
+                                                        : field.id === 'cpf'
+                                                            ? formatCPF(formData[field.id] || '')
+                                                            : formData[field.id] || ''
+                                                }
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    [field.id]: field.id === 'telefone'
+                                                        ? formatPhoneNumber(e.target.value)
+                                                        : field.id === 'cpf'
+                                                            ? formatCPF(e.target.value)
+                                                            : e.target.value
+                                                })}
                                                 placeholder={field.placeholder}
                                                 required={field.required}
                                                 className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus-visible:ring-1"
