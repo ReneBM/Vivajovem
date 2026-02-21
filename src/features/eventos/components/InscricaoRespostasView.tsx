@@ -15,7 +15,8 @@ import {
     Copy,
     ArrowLeft,
     Download,
-    QrCode
+    QrCode,
+    Trash2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -30,6 +31,7 @@ interface InscricaoRespostasViewProps {
     onBack: () => void;
     onCopyLink: (slug: string) => void;
     onShowQRCode: (slug: string) => void;
+    onDeleteResposta: (id: string) => void;
 }
 
 export default function InscricaoRespostasView({
@@ -38,7 +40,8 @@ export default function InscricaoRespostasView({
     loading,
     onBack,
     onCopyLink,
-    onShowQRCode
+    onShowQRCode,
+    onDeleteResposta
 }: InscricaoRespostasViewProps) {
     const enabledFields = inscricao.campos_personalizados.filter(f => f.enabled);
 
@@ -124,6 +127,7 @@ export default function InscricaoRespostasView({
                                             <TableHead key={f.id} className="whitespace-nowrap">{f.label}</TableHead>
                                         ))}
                                         <TableHead>Data</TableHead>
+                                        <TableHead className="text-right">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -137,6 +141,20 @@ export default function InscricaoRespostasView({
                                             ))}
                                             <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                                                 {format(parseISO(resp.created_at), 'dd/MM HH:mm')}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                                                    onClick={() => {
+                                                        if (confirm('Tem certeza que deseja excluir esta inscrição?')) {
+                                                            onDeleteResposta(resp.id);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}

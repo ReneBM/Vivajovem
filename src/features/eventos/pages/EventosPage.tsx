@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
@@ -98,6 +99,23 @@ export default function Eventos() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Sync tab with URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && (tab === 'calendario' || tab === 'recorrentes' || tab === 'inscricoes') && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  // Update URL when tab changes manually
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', value);
+    setSearchParams(newParams);
+  };
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   // Evento form
@@ -259,11 +277,10 @@ export default function Eventos() {
     setIsRecSubmitting(true);
     try {
       const selectedTipo = tiposEvento.find(t => t.nome === recFormData.tipo);
-      const rulePayload: Database['public']['Tables']['eventos_recorrentes']['Insert'] = {
+      const rulePayload: any = {
         titulo: recFormData.titulo,
         descricao: recFormData.descricao || null,
         tipo: recFormData.tipo,
-        tipo_id: selectedTipo?.id || null,
         grupo_id: recFormData.grupo_id || null,
         campanha_id: null,
         hora_evento: recFormData.hora_evento,
@@ -514,8 +531,8 @@ export default function Eventos() {
       </Dialog>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full grid-cols-3 mb-8">
           <TabsTrigger value="calendario" className="flex items-center gap-2">
             <Calendar className="w-4 h-4" /> Calendário
           </TabsTrigger>

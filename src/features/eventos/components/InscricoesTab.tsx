@@ -161,6 +161,18 @@ export default function InscricoesTab() {
         finally { setLoadingRespostas(false); }
     }
 
+    async function handleDeleteResposta(id: string) {
+        try {
+            const { error } = await supabase.from('inscricoes_evento_respostas').delete().eq('id', id);
+            if (error) throw error;
+            toast.success('Inscrição excluída com sucesso');
+            if (viewingInscricao) fetchRespostas(viewingInscricao.id);
+        } catch (error) {
+            console.error('Error deleting resposta:', error);
+            toast.error('Erro ao excluir inscrição');
+        }
+    }
+
     function generateSlug(titulo: string): string {
         return titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     }
@@ -323,6 +335,7 @@ export default function InscricoesTab() {
                 onBack={handleBack}
                 onCopyLink={copyLink}
                 onShowQRCode={openQRCode}
+                onDeleteResposta={handleDeleteResposta}
             />
         );
     }
