@@ -45,7 +45,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     heart: <Heart className="w-4 h-4" />,
 };
 
-import { FieldConfig, Evento } from '@/types/app-types';
+import { FieldConfig, Evento, EventoRecorrente } from '@/types/app-types';
 
 interface InscricaoFormData {
     titulo: string;
@@ -58,6 +58,7 @@ interface InscricaoFormData {
     imagem_titulo_url: string;
     max_vagas: string;
     data_limite: string;
+    recorrente_id: string;
     ativa: boolean;
 }
 
@@ -68,6 +69,7 @@ interface InscricaoFormStepsProps {
     setFormData: React.Dispatch<React.SetStateAction<InscricaoFormData>>;
     campos: FieldConfig[];
     eventos: Evento[];
+    recorrentes: EventoRecorrente[];
     isEditing: boolean;
     isSubmitting: boolean;
     uploadingCapa: boolean;
@@ -95,6 +97,7 @@ export default function InscricaoFormSteps({
     setFormData,
     campos,
     eventos,
+    recorrentes,
     isEditing,
     isSubmitting,
     uploadingCapa,
@@ -148,19 +151,57 @@ export default function InscricaoFormSteps({
                             />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label>Evento vinculado (opcional)</Label>
-                        <Select value={formData.evento_id} onValueChange={(v) => setFormData(prev => ({ ...prev, evento_id: v === 'none' ? '' : v }))}>
-                            <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                {eventos.map(e => (
-                                    <SelectItem key={e.id} value={e.id}>
-                                        {e.titulo} — {format(parseISO(e.data_evento), 'dd/MM/yyyy')}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="space-y-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                        <Label className="text-primary font-semibold">Vínculo do Evento</Label>
+
+                        <div className="space-y-2">
+                            <Label className="text-xs">Vincular a um Evento Específico</Label>
+                            <Select
+                                value={formData.evento_id || 'none'}
+                                onValueChange={(v) => {
+                                    setFormData(prev => ({ ...prev, evento_id: v === 'none' ? '' : v, recorrente_id: '' }));
+                                }}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
+                                    {eventos.map(e => (
+                                        <SelectItem key={e.id} value={e.id}>
+                                            {e.titulo} — {format(parseISO(e.data_evento), 'dd/MM/yyyy')}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-border/50"></div>
+                            <span className="flex-shrink mx-4 text-[10px] text-muted-foreground uppercase tracking-widest">OU</span>
+                            <div className="flex-grow border-t border-border/50"></div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-xs">Vincular a uma Regra Recorrente (Ex: Todo Domingo)</Label>
+                            <Select
+                                value={formData.recorrente_id || 'none'}
+                                onValueChange={(v) => {
+                                    setFormData(prev => ({ ...prev, recorrente_id: v === 'none' ? '' : v, evento_id: '' }));
+                                }}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Nenhuma</SelectItem>
+                                    {recorrentes.map(r => (
+                                        <SelectItem key={r.id} value={r.id}>
+                                            {r.titulo} (Recorrente)
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground">
+                                Ao vincular a uma recorrência, a inscrição aparecerá em todos os eventos gerados por esta regra.
+                            </p>
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label>Descrição</Label>

@@ -92,22 +92,39 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
     if (!evento) return;
     setLoadingInscricao(true);
     try {
-      const { data, error } = await supabase
+      // Buscar por evento específico
+      let { data, error } = await supabase
         .from('inscricoes_evento')
-        .select('id, slug, ativa, limite_vagas')
+        .select('id, slug, ativa, max_vagas')
         .eq('evento_id', evento.id)
         .maybeSingle();
 
       if (error) throw error;
 
+      // Se não encontrou e o evento faz parte de uma recorrência, busca pela recorrência
+      if (!data && (evento as any).recorrente_id) {
+        const { data: recData, error: recError } = await supabase
+          .from('inscricoes_evento')
+          .select('id, slug, ativa, max_vagas')
+          .eq('recorrente_id', (evento as any).recorrente_id)
+          .maybeSingle();
+
+        if (recError) throw recError;
+        data = recData;
+      }
+
       if (data) {
         // Count total participants for this registration form
-        const { count, error: countError } = await supabase
+        const { count, error: countError } = await (supabase
           .from('inscricoes_evento_respostas')
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true }) as any)
           .eq('inscricao_id', data.id);
 
-        setInscricao({ ...data, total_inscritos: count || 0 });
+        setInscricao({
+          ...data,
+          total_inscritos: count || 0,
+          limite_vagas: (data as any).max_vagas
+        } as any);
       } else {
         setInscricao(null);
       }
@@ -245,7 +262,7 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
           <div className="flex items-center justify-between pr-8">
             <DialogTitle className="font-display text-xl">{evento.titulo}</DialogTitle>
             {inscricao && (
-              <Badge variant="success" className="gap-1">
+              <Badge variant="outline" className="gap-1 bg-success/10 text-success border-success/20">
                 <FileText className="w-3 h-3" />
                 Inscrições Ativas
               </Badge>
@@ -387,14 +404,14 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
                   <FileText className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <div className="max-w-[280px]">
-                  <h3 className="font-semibold">Nenhuma inscrição ativa</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Você ainda não criou um formulário de inscrição para este evento.
+                  <h3 className="font-semibold text-lg">Sem formulário vinculado</h3>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Para habilitar inscrições, vincule este evento ou sua regra de recorrência na aba <strong>Inscrições</strong>.
                   </p>
                 </div>
-                <Button variant="hero" asChild>
+                <Button variant="outline" asChild className="mt-4">
                   <a href="/eventos?tab=inscricoes">
-                    Criar Formulário
+                    Ir para Inscrições
                   </a>
                 </Button>
               </div>

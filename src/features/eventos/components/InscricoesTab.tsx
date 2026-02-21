@@ -46,7 +46,7 @@ import InscricaoRespostasView from './InscricaoRespostasView';
 import InscricaoFormSteps from './InscricaoFormSteps';
 import QRCodeDialog from './QRCodeDialog';
 
-import { FieldConfig, InscricaoEvento, RespostaInscricao, Evento } from '@/types/app-types';
+import { FieldConfig, InscricaoEvento, RespostaInscricao, Evento, EventoRecorrente } from '@/types/app-types';
 
 type Resposta = RespostaInscricao;
 
@@ -64,6 +64,7 @@ const DEFAULT_FIELDS: FieldConfig[] = [
 export default function InscricoesTab() {
     const [inscricoes, setInscricoes] = useState<InscricaoEvento[]>([]);
     const [eventos, setEventos] = useState<Evento[]>([]);
+    const [recorrentes, setRecorrentes] = useState<EventoRecorrente[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,6 +84,7 @@ export default function InscricoesTab() {
         descricao: '',
         slug: '',
         evento_id: '',
+        recorrente_id: '',
         cor_primaria: '#D4A017',
         cor_fundo: '#0F0F0F',
         imagem_capa_url: '',
@@ -104,7 +106,7 @@ export default function InscricoesTab() {
 
     async function fetchAll() {
         setLoading(true);
-        await Promise.all([fetchInscricoes(), fetchEventos()]);
+        await Promise.all([fetchInscricoes(), fetchEventos(), fetchRecorrentes()]);
         setLoading(false);
     }
 
@@ -121,10 +123,18 @@ export default function InscricoesTab() {
 
     async function fetchEventos() {
         try {
-            const { data, error } = await supabase.from('eventos').select('id, titulo, data_evento').order('data_evento', { ascending: false });
+            const { data, error } = await supabase.from('eventos').select('id, titulo, data_evento').order('data_evento', { ascending: false }).limit(50);
             if (error) throw error;
             setEventos((data as any) || []);
         } catch (error) { console.error('Error fetching eventos:', error); }
+    }
+
+    async function fetchRecorrentes() {
+        try {
+            const { data, error } = await supabase.from('eventos_recorrentes').select('id, titulo').eq('ativo', true).order('titulo');
+            if (error) throw error;
+            setRecorrentes((data as any) || []);
+        } catch (error) { console.error('Error fetching recorrentes:', error); }
     }
 
     async function fetchRespostas(inscricaoId: string) {
@@ -142,7 +152,11 @@ export default function InscricoesTab() {
     }
 
     function resetForm() {
-        setFormData({ titulo: '', descricao: '', slug: '', evento_id: '', cor_primaria: '#D4A017', cor_fundo: '#0F0F0F', imagem_capa_url: '', imagem_titulo_url: '', max_vagas: '', data_limite: '', ativa: true });
+        setFormData({
+            titulo: '', descricao: '', slug: '', evento_id: '', recorrente_id: '',
+            cor_primaria: '#D4A017', cor_fundo: '#0F0F0F', imagem_capa_url: '',
+            imagem_titulo_url: '', max_vagas: '', data_limite: '', ativa: true,
+        });
         setCampos(DEFAULT_FIELDS);
         setEditing(null);
         setFormStep(0);
@@ -190,15 +204,18 @@ export default function InscricoesTab() {
 
     function handleTituloRemove() { setFormData(prev => ({ ...prev, imagem_titulo_url: '' })); }
 
-    function openEdit(insc: InscricaoEvento) {
+    function openEdit(insc: any) {
         setEditing(insc);
         setFormData({
-            titulo: insc.titulo, descricao: insc.descricao || '', slug: insc.slug, evento_id: insc.evento_id || '',
-            cor_primaria: insc.cor_primaria, cor_fundo: insc.cor_fundo, imagem_capa_url: insc.imagem_capa_url || '',
-            imagem_titulo_url: insc.imagem_titulo_url || '', max_vagas: insc.max_vagas?.toString() || '',
+            titulo: insc.titulo, descricao: insc.descricao || '', slug: insc.slug,
+            evento_id: insc.evento_id || '', recorrente_id: insc.recorrente_id || '',
+            cor_primaria: insc.cor_primaria, cor_fundo: insc.cor_fundo,
+            imagem_capa_url: insc.imagem_capa_url || '',
+            imagem_titulo_url: insc.imagem_titulo_url || '',
+            max_vagas: insc.max_vagas?.toString() || '',
             data_limite: insc.data_limite || '', ativa: insc.ativa,
         });
-        setCampos(insc.campos_personalizados.length > 0 ? insc.campos_personalizados : DEFAULT_FIELDS);
+        setCampos(insc.campos_personalizados?.length > 0 ? insc.campos_personalizados : DEFAULT_FIELDS);
         setFormStep(0);
         setIsDialogOpen(true);
     }
@@ -208,10 +225,19 @@ export default function InscricoesTab() {
         setIsSubmitting(true);
         try {
             const payload: any = {
-                titulo: formData.titulo, descricao: formData.descricao || null, slug: formData.slug, evento_id: formData.evento_id || null,
-                cor_primaria: formData.cor_primaria, cor_fundo: formData.cor_fundo, imagem_capa_url: formData.imagem_capa_url || null,
-                imagem_titulo_url: formData.imagem_titulo_url || null, campos_personalizados: campos,
-                max_vagas: formData.max_vagas ? parseInt(formData.max_vagas) : null, data_limite: formData.data_limite || null, ativa: formData.ativa,
+                titulo: formData.titulo,
+                descricao: formData.descricao || null,
+                slug: formData.slug,
+                evento_id: formData.evento_id || null,
+                recorrente_id: formData.recorrente_id || null,
+                cor_primaria: formData.cor_primaria,
+                cor_fundo: formData.cor_fundo,
+                imagem_capa_url: formData.imagem_capa_url || null,
+                imagem_titulo_url: formData.imagem_titulo_url || null,
+                campos_personalizados: campos,
+                max_vagas: formData.max_vagas ? parseInt(formData.max_vagas) : null,
+                data_limite: formData.data_limite || null,
+                ativa: formData.ativa,
             };
 
             if (editing) {
@@ -223,7 +249,9 @@ export default function InscricoesTab() {
                 if (error) throw error;
                 toast.success('Inscrição criada!');
             }
-            setIsDialogOpen(false); resetForm(); fetchInscricoes();
+            setIsDialogOpen(false);
+            resetForm();
+            fetchAll();
         } catch (error: any) {
             if (error?.code === '23505') toast.error('Já existe uma inscrição com este slug');
             else { console.error('Error:', error); toast.error('Erro ao salvar inscrição'); }
@@ -315,6 +343,7 @@ export default function InscricoesTab() {
                         setFormData={setFormData as any}
                         campos={campos as any}
                         eventos={eventos}
+                        recorrentes={recorrentes}
                         isEditing={!!editing}
                         isSubmitting={isSubmitting}
                         uploadingCapa={uploadingCapa}
