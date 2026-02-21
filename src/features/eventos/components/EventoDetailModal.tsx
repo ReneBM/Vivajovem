@@ -392,7 +392,7 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
                 </div>
 
                 <Button variant="outline" className="w-full gap-2" asChild>
-                  <a href="/eventos?tab=inscricoes">
+                  <a href={`/eventos?tab=inscricoes&id=${inscricao.id}`}>
                     <Users className="w-4 h-4" />
                     Gerenciar Participantes
                   </a>

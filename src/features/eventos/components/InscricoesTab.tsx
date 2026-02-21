@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,10 +97,23 @@ export default function InscricoesTab() {
     const [campos, setCampos] = useState<FieldConfig[]>(DEFAULT_FIELDS);
     const [customFieldLabel, setCustomFieldLabel] = useState('');
     const [formStep, setFormStep] = useState(0);
+    const [searchParams, setSearchParams] = useSearchParams();
 
     useEffect(() => {
         fetchAll();
     }, []);
+
+    // Handle deep linking to a specific inscription
+    useEffect(() => {
+        const viewId = searchParams.get('id');
+        if (viewId && inscricoes.length > 0) {
+            const linkedInsc = inscricoes.find(i => i.id === viewId);
+            if (linkedInsc && !viewingInscricao) {
+                setViewingInscricao(linkedInsc);
+                fetchRespostas(linkedInsc.id);
+            }
+        }
+    }, [searchParams, inscricoes, viewingInscricao]);
 
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [isQRCodeOpen, setIsQRCodeOpen] = useState(false);
@@ -172,7 +186,7 @@ export default function InscricoesTab() {
         setUploadingCapa(true);
         try {
             const fileExt = file.name.split('.').pop();
-            const fileName = `eventos-capa/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `eventos - capa / ${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
             const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
             if (uploadError) throw uploadError;
             const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
@@ -192,7 +206,7 @@ export default function InscricoesTab() {
         setUploadingTitulo(true);
         try {
             const fileExt = file.name.split('.').pop();
-            const fileName = `eventos-titulo/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `eventos - titulo / ${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
             const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
             if (uploadError) throw uploadError;
             const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
@@ -269,13 +283,13 @@ export default function InscricoesTab() {
     }
 
     function copyLink(slug: string) {
-        const url = `${window.location.origin}/evento/${slug}`;
+        const url = `${window.location.origin} /evento/${slug} `;
         navigator.clipboard.writeText(url);
         toast.success('Link copiado!');
     }
 
     function openQRCode(slug: string) {
-        setQrCodeUrl(`${window.location.origin}/evento/${slug}`);
+        setQrCodeUrl(`${window.location.origin} /evento/${slug} `);
         setIsQRCodeOpen(true);
     }
 
@@ -285,11 +299,20 @@ export default function InscricoesTab() {
     function addCustomField() {
         if (!customFieldLabel.trim()) return;
         setCampos(prev => [...prev, {
-            id: `custom_${Date.now()}`, label: customFieldLabel, type: 'text', required: false, enabled: true, placeholder: `Digite ${customFieldLabel.toLowerCase()}`, icon: 'heart',
+            id: `custom_${Date.now()} `, label: customFieldLabel, type: 'text', required: false, enabled: true, placeholder: `Digite ${customFieldLabel.toLowerCase()} `, icon: 'heart',
         }]);
         setCustomFieldLabel('');
     }
     function removeCustomField(id: string) { setCampos(prev => prev.filter(f => f.id !== id)); }
+
+    function handleBack() {
+        setViewingInscricao(null);
+        setRespostas([]);
+        // Clear search params when going back
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('id');
+        setSearchParams(newParams);
+    }
 
     if (viewingInscricao) {
         return (
@@ -297,7 +320,7 @@ export default function InscricoesTab() {
                 inscricao={viewingInscricao}
                 respostas={respostas}
                 loading={loadingRespostas}
-                onBack={() => { setViewingInscricao(null); setRespostas([]); }}
+                onBack={handleBack}
                 onCopyLink={copyLink}
                 onShowQRCode={openQRCode}
             />
@@ -332,7 +355,7 @@ export default function InscricoesTab() {
                     {/* Step indicator */}
                     <div className="flex gap-2 mb-2">
                         {[0, 1].map(step => (
-                            <button key={step} onClick={() => setFormStep(step)} className={`flex-1 h-1.5 rounded-full transition-all ${formStep === step ? 'bg-primary' : 'bg-muted'}`} />
+                            <button key={step} onClick={() => setFormStep(step)} className={`flex - 1 h - 1.5 rounded - full transition - all ${formStep === step ? 'bg-primary' : 'bg-muted'} `} />
                         ))}
                     </div>
 
@@ -385,7 +408,7 @@ export default function InscricoesTab() {
                         {inscricoes.map((insc, idx) => {
                             const eventoRef = eventos.find(e => e.id === insc.evento_id);
                             return (
-                                <Card key={insc.id} className="glass-card overflow-hidden animate-slide-up opacity-0 hover:shadow-lg transition-shadow" style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'forwards' }}>
+                                <Card key={insc.id} className="glass-card overflow-hidden animate-slide-up opacity-0 hover:shadow-lg transition-shadow" style={{ animationDelay: `${idx * 80} ms`, animationFillMode: 'forwards' }}>
                                     <div className="h-2" style={{ backgroundColor: insc.cor_primaria }} />
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
@@ -404,7 +427,7 @@ export default function InscricoesTab() {
                                                     <DropdownMenuItem onClick={() => { setViewingInscricao(insc); fetchRespostas(insc.id); }}><Users className="w-4 h-4 mr-2" /> Ver Inscritos</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => copyLink(insc.slug)}><Copy className="w-4 h-4 mr-2" /> Copiar Link</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => openQRCode(insc.slug)}><QrCode className="w-4 h-4 mr-2" /> Gerar QR Code</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => window.open(`/evento/${insc.slug}`, '_blank')}><ExternalLink className="w-4 h-4 mr-2" /> Abrir Página</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => window.open(`/ evento / ${insc.slug} `, '_blank')}><ExternalLink className="w-4 h-4 mr-2" /> Abrir Página</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => openEdit(insc)}><Edit className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
