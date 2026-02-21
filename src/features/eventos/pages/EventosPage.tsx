@@ -531,18 +531,11 @@ export default function Eventos() {
       </Dialog>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3 mb-8">
-          <TabsTrigger value="calendario" className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" /> Calendário
-          </TabsTrigger>
-          <TabsTrigger value="recorrencias" className="flex items-center gap-2">
-            <Repeat className="w-4 h-4" /> Recorrências
-            {recorrentes.length > 0 && <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">{recorrentes.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="inscricoes" className="flex items-center gap-2">
-            <ClipboardList className="w-4 h-4" /> Inscrições
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="mb-8">
+          <TabsTrigger value="calendario">Calendário</TabsTrigger>
+          <TabsTrigger value="recorrencias">Recorrências</TabsTrigger>
+          <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
         </TabsList>
 
         {/* TAB: CALENDÁRIO */}

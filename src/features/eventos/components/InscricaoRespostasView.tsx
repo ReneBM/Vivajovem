@@ -11,12 +11,13 @@ import {
 } from '@/components/ui/table';
 import {
     Loader2,
-    Users,
-    Copy,
+    QrCode,
+    Trash2,
+    Edit,
     ArrowLeft,
     Download,
-    QrCode,
-    Trash2
+    Users,
+    Copy
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -32,6 +33,7 @@ interface InscricaoRespostasViewProps {
     onCopyLink: (slug: string) => void;
     onShowQRCode: (slug: string) => void;
     onDeleteResposta: (id: string) => void;
+    onEditResposta: (resposta: Resposta) => void;
 }
 
 export default function InscricaoRespostasView({
@@ -41,7 +43,8 @@ export default function InscricaoRespostasView({
     onBack,
     onCopyLink,
     onShowQRCode,
-    onDeleteResposta
+    onDeleteResposta,
+    onEditResposta
 }: InscricaoRespostasViewProps) {
     const enabledFields = inscricao.campos_personalizados.filter(f => f.enabled);
 
@@ -142,16 +145,20 @@ export default function InscricaoRespostasView({
                                             <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                                                 {format(parseISO(resp.created_at), 'dd/MM HH:mm')}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right flex justify-end gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                    onClick={() => onEditResposta(resp)}
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
                                                     className="text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
-                                                    onClick={() => {
-                                                        if (confirm('Tem certeza que deseja excluir esta inscrição?')) {
-                                                            onDeleteResposta(resp.id);
-                                                        }
-                                                    }}
+                                                    onClick={() => onDeleteResposta(resp.id)}
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>

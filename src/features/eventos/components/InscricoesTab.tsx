@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,7 @@ export default function InscricoesTab() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editing, setEditing] = useState<InscricaoEvento | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [deleteRespostaId, setDeleteRespostaId] = useState<string | null>(null);
     const [uploadingCapa, setUploadingCapa] = useState(false);
     const [uploadingTitulo, setUploadingTitulo] = useState(false);
 
@@ -78,6 +79,7 @@ export default function InscricoesTab() {
     const [viewingInscricao, setViewingInscricao] = useState<InscricaoEvento | null>(null);
     const [respostas, setRespostas] = useState<Resposta[]>([]);
     const [loadingRespostas, setLoadingRespostas] = useState(false);
+    const [editingResposta, setEditingResposta] = useState<Resposta | null>(null);
 
     // Form
     const [formData, setFormData] = useState({
@@ -161,15 +163,31 @@ export default function InscricoesTab() {
         finally { setLoadingRespostas(false); }
     }
 
-    async function handleDeleteResposta(id: string) {
+    async function handleDeleteResposta() {
+        if (!deleteRespostaId) return;
         try {
-            const { error } = await supabase.from('inscricoes_evento_respostas').delete().eq('id', id);
+            const { error } = await supabase.from('inscricoes_evento_respostas').delete().eq('id', deleteRespostaId);
             if (error) throw error;
             toast.success('Inscrição excluída com sucesso');
             if (viewingInscricao) fetchRespostas(viewingInscricao.id);
         } catch (error) {
             console.error('Error deleting resposta:', error);
             toast.error('Erro ao excluir inscrição');
+        } finally {
+            setDeleteRespostaId(null);
+        }
+    }
+
+    async function handleUpdateResposta(id: string, novosDados: Record<string, string>) {
+        try {
+            const { error } = await supabase.from('inscricoes_evento_respostas').update({ dados: novosDados }).eq('id', id);
+            if (error) throw error;
+            toast.success('Dados do inscrito atualizados');
+            setEditingResposta(null);
+            if (viewingInscricao) fetchRespostas(viewingInscricao.id);
+        } catch (error) {
+            console.error('Error updating resposta:', error);
+            toast.error('Erro ao atualizar dados');
         }
     }
 
@@ -326,31 +344,31 @@ export default function InscricoesTab() {
         setSearchParams(newParams);
     }
 
-    if (viewingInscricao) {
-        return (
-            <InscricaoRespostasView
-                inscricao={viewingInscricao}
-                respostas={respostas}
-                loading={loadingRespostas}
-                onBack={handleBack}
-                onCopyLink={copyLink}
-                onShowQRCode={openQRCode}
-                onDeleteResposta={handleDeleteResposta}
-            />
-        );
-    }
-
     return (
         <div className="space-y-6">
+            {/* Common Dialogs */}
             <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir Inscrição</AlertDialogTitle>
+                        <AlertDialogTitle>Excluir Formulário</AlertDialogTitle>
                         <AlertDialogDescription>Todos os dados de inscritos serão perdidos. Esta ação não pode ser desfeita.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!deleteRespostaId} onOpenChange={(open) => !open && setDeleteRespostaId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Inscrito</AlertDialogTitle>
+                        <AlertDialogDescription>Os dados deste participante serão removidos permanentemente. Esta ação não pode ser desfeita.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteResposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -365,10 +383,9 @@ export default function InscricoesTab() {
                         <DialogDescription>{formStep === 0 ? 'Dados básicos da inscrição' : 'Configure os campos do formulário'}</DialogDescription>
                     </DialogHeader>
 
-                    {/* Step indicator */}
                     <div className="flex gap-2 mb-2">
                         {[0, 1].map(step => (
-                            <button key={step} onClick={() => setFormStep(step)} className={`flex - 1 h - 1.5 rounded - full transition - all ${formStep === step ? 'bg-primary' : 'bg-muted'} `} />
+                            <button key={step} onClick={() => setFormStep(step)} className={`flex-1 h-1.5 rounded-full transition-all ${formStep === step ? 'bg-primary' : 'bg-muted'}`} />
                         ))}
                     </div>
 
@@ -401,66 +418,13 @@ export default function InscricoesTab() {
                 </DialogContent>
             </Dialog>
 
-            {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-            ) : inscricoes.length === 0 ? (
-                <Card className="glass-card">
-                    <CardContent className="flex flex-col items-center py-12 text-center">
-                        <ClipboardList className="w-12 h-12 text-muted-foreground/50 mb-4" />
-                        <h3 className="font-semibold text-foreground">Nenhuma inscrição criada</h3>
-                        <p className="text-sm text-muted-foreground mt-1">Crie uma página de inscrição para um evento</p>
-                        <Button variant="hero" className="mt-4" onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4" /> Nova Inscrição</Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <Button variant="hero" onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4" /> Nova Inscrição</Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {inscricoes.map((insc, idx) => {
-                            const eventoRef = eventos.find(e => e.id === insc.evento_id);
-                            return (
-                                <Card key={insc.id} className="glass-card overflow-hidden animate-slide-up opacity-0 hover:shadow-lg transition-shadow" style={{ animationDelay: `${idx * 80} ms`, animationFillMode: 'forwards' }}>
-                                    <div className="h-2" style={{ backgroundColor: insc.cor_primaria }} />
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <CardTitle className="text-base font-display">{insc.titulo}</CardTitle>
-                                                {eventoRef && <p className="text-xs text-muted-foreground mt-1">{eventoRef.titulo} • {format(parseISO(eventoRef.data_evento), 'dd/MM/yyyy')}</p>}
-                                                <div className="flex gap-2 mt-2 flex-wrap">
-                                                    <Badge variant={insc.ativa ? 'default' : 'secondary'} className={insc.ativa ? 'bg-success/10 text-success' : ''}>
-                                                        {insc.ativa ? <><CheckCircle2 className="w-3 h-3 mr-1" /> Ativa</> : <><XCircle className="w-3 h-3 mr-1" /> Inativa</>}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => { setViewingInscricao(insc); fetchRespostas(insc.id); }}><Users className="w-4 h-4 mr-2" /> Ver Inscritos</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => copyLink(insc.slug)}><Copy className="w-4 h-4 mr-2" /> Copiar Link</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => openQRCode(insc.slug)}><QrCode className="w-4 h-4 mr-2" /> Gerar QR Code</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => window.open(`/ evento / ${insc.slug} `, '_blank')}><ExternalLink className="w-4 h-4 mr-2" /> Abrir Página</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => openEdit(insc)}><Edit className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                            <div className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> <span>Formulário</span></div>
-                                            <div className="flex gap-2">
-                                                <Button size="sm" variant="outline" onClick={() => openEdit(insc)}>Editar</Button>
-                                                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(insc.id)}><Trash2 className="w-4 h-4" /></Button>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+            <EditRespostaDialog
+                resposta={editingResposta}
+                inscricao={viewingInscricao}
+                open={!!editingResposta}
+                onOpenChange={(open) => !open && setEditingResposta(null)}
+                onSave={handleUpdateResposta}
+            />
 
             <QRCodeDialog
                 url={qrCodeUrl}
@@ -468,6 +432,151 @@ export default function InscricoesTab() {
                 onOpenChange={setIsQRCodeOpen}
                 title={viewingInscricao?.titulo || ''}
             />
+
+            {/* Conditional Content */}
+            {viewingInscricao ? (
+                <InscricaoRespostasView
+                    inscricao={viewingInscricao}
+                    respostas={respostas}
+                    loading={loadingRespostas}
+                    onBack={handleBack}
+                    onCopyLink={copyLink}
+                    onShowQRCode={openQRCode}
+                    onDeleteResposta={setDeleteRespostaId}
+                    onEditResposta={setEditingResposta}
+                />
+            ) : loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            ) : (
+                <div className="space-y-4">
+                    {inscricoes.length === 0 ? (
+                        <Card className="glass-card">
+                            <CardContent className="flex flex-col items-center py-12 text-center">
+                                <ClipboardList className="w-12 h-12 text-muted-foreground/50 mb-4" />
+                                <h3 className="font-semibold text-foreground">Nenhuma inscrição criada</h3>
+                                <p className="text-sm text-muted-foreground mt-1">Crie uma página de inscrição para um evento</p>
+                                <Button variant="hero" className="mt-4" onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4" /> Nova Inscrição</Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <>
+                            <div className="flex justify-end">
+                                <Button variant="hero" onClick={() => setIsDialogOpen(true)}><Plus className="w-4 h-4" /> Nova Inscrição</Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {inscricoes.map((insc, idx) => {
+                                    const eventoRef = eventos.find(e => e.id === insc.evento_id);
+                                    return (
+                                        <Card key={insc.id} className="glass-card overflow-hidden animate-slide-up opacity-0 hover:shadow-lg transition-shadow" style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'forwards' }}>
+                                            <div className="h-2" style={{ backgroundColor: insc.cor_primaria }} />
+                                            <CardHeader className="pb-3">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <CardTitle className="text-base font-display">{insc.titulo}</CardTitle>
+                                                        {eventoRef && <p className="text-xs text-muted-foreground mt-1">{eventoRef.titulo} • {format(parseISO(eventoRef.data_evento), 'dd/MM/yyyy')}</p>}
+                                                        <div className="flex gap-2 mt-2 flex-wrap">
+                                                            <Badge variant={insc.ativa ? 'default' : 'secondary'} className={insc.ativa ? 'bg-success/10 text-success' : ''}>
+                                                                {insc.ativa ? <><CheckCircle2 className="w-3 h-3 mr-1" /> Ativa</> : <><XCircle className="w-3 h-3 mr-1" /> Inativa</>}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                    <ActionsDropdown
+                                                        insc={insc}
+                                                        onViewRespostas={() => { setViewingInscricao(insc); fetchRespostas(insc.id); }}
+                                                        onCopyLink={copyLink}
+                                                        onQRCode={openQRCode}
+                                                        onEdit={openEdit}
+                                                    />
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                                    <div className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> <span>Formulário</span></div>
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" variant="outline" onClick={() => openEdit(insc)}>Editar</Button>
+                                                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(insc.id)}><Trash2 className="w-4 h-4" /></Button>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
+    );
+}
+
+// Helper to keep the list cleaner
+function ActionsDropdown({ insc, onViewRespostas, onCopyLink, onQRCode, onEdit }: any) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onViewRespostas}><Users className="w-4 h-4 mr-2" /> Ver Inscritos</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCopyLink(insc.slug)}><Copy className="w-4 h-4 mr-2" /> Copiar Link</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onQRCode(insc.slug)}><QrCode className="w-4 h-4 mr-2" /> Gerar QR Code</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.open(`/evento/${insc.slug}`, '_blank')}><ExternalLink className="w-4 h-4 mr-2" /> Abrir Página</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(insc)}><Edit className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+function EditRespostaDialog({ resposta, inscricao, open, onOpenChange, onSave }: {
+    resposta: Resposta | null,
+    inscricao: InscricaoEvento | null,
+    open: boolean,
+    onOpenChange: (open: boolean) => void,
+    onSave: (id: string, dados: Record<string, string>) => Promise<void>
+}) {
+    const [localDados, setLocalDados] = useState<Record<string, string>>({});
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (resposta) setLocalDados(resposta.dados || {});
+    }, [resposta]);
+
+    if (!resposta || !inscricao) return null;
+
+    const enabledFields = inscricao.campos_personalizados.filter(f => f.enabled);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Dados do Inscrito</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    {enabledFields.map(field => (
+                        <div key={field.id} className="space-y-2">
+                            <label className="text-sm font-medium">{field.label}</label>
+                            <input
+                                className="w-full p-2 bg-muted/50 border rounded-md"
+                                value={localDados[field.id] || ''}
+                                onChange={(e) => setLocalDados(prev => ({ ...prev, [field.id]: e.target.value }))}
+                            />
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                    <Button
+                        disabled={isSaving}
+                        onClick={async () => {
+                            setIsSaving(true);
+                            await onSave(resposta.id, localDados);
+                            setIsSaving(false);
+                        }}
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Salvar Alterações
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
