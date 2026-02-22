@@ -37,6 +37,7 @@ export interface TipoEvento extends TipoEventoRow { }
 export interface InscricaoEvento extends Omit<InscricaoEventoRow, 'campos_personalizados'> {
     status?: StatusInscricao;
     campos_personalizados: FieldConfig[];
+    eventos?: { data_evento: string; situacao: SituacaoEvento } | null;
 }
 
 export interface Grupo {

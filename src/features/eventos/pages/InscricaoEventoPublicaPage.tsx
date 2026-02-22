@@ -66,9 +66,8 @@ export default function InscricaoEventoPublicaPage() {
         try {
             const { data, error: fetchErr } = await supabase
                 .from('inscricoes_evento')
-                .select('*')
+                .select('*, eventos(data_evento, situacao)')
                 .eq('slug', slug)
-                .eq('ativa', true)
                 .single();
 
             if (fetchErr || !data) {
@@ -105,7 +104,15 @@ export default function InscricaoEventoPublicaPage() {
                 const limit = new Date(inscData.data_limite);
                 if (new Date() > limit) {
                     setError('O prazo de inscrição já encerrou.');
-                    // Optionally update status in background (client-side update)
+                    return;
+                }
+            }
+
+            // Check event date
+            if (row.eventos) {
+                const eventDate = new Date(row.eventos.data_evento);
+                if (new Date() > eventDate || row.eventos.situacao === 'REALIZADO') {
+                    setError('Este evento já ocorreu e as inscrições foram encerradas.');
                     return;
                 }
             }

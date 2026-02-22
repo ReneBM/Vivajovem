@@ -132,7 +132,10 @@ export default function InscricoesTab() {
 
     async function fetchInscricoes() {
         try {
-            const { data, error } = await supabase.from('inscricoes_evento').select('*').order('created_at', { ascending: false });
+            const { data, error } = await supabase
+                .from('inscricoes_evento')
+                .select('*, eventos(data_evento, situacao)')
+                .order('created_at', { ascending: false });
             if (error) throw error;
 
             const fetched = (data || []).map((d: any) => ({
@@ -142,11 +145,21 @@ export default function InscricoesTab() {
 
             // Auto-finalization logic
             const now = new Date();
-            const toUpdate = fetched.filter(i =>
-                i.status === 'ATIVA' &&
-                i.data_limite &&
-                new Date(i.data_limite) < now
-            );
+            const toUpdate = fetched.filter(i => {
+                if (i.status !== 'ATIVA') return false;
+
+                // Case 1: Inscription limit passed
+                if (i.data_limite && new Date(i.data_limite) < now) return true;
+
+                // Case 2: Associated event passed or is already realized
+                const eventRef = (i as any).eventos;
+                if (eventRef) {
+                    if (eventRef.situacao === 'REALIZADO') return true;
+                    if (new Date(eventRef.data_evento) < now) return true;
+                }
+
+                return false;
+            });
 
             if (toUpdate.length > 0) {
                 const ids = toUpdate.map(i => i.id);

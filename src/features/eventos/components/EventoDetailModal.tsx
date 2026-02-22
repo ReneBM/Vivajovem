@@ -45,8 +45,9 @@ interface Jovem {
 interface InscriçãoEvento {
   id: string;
   slug: string;
-  ativa: boolean;
-  limite_vagas: number | null;
+  status: 'ATIVA' | 'PAUSADA' | 'FINALIZADA';
+  data_limite: string | null;
+  max_vagas: number | null;
   total_inscritos?: number;
 }
 
@@ -95,7 +96,7 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
       // Buscar por evento específico
       let { data, error } = await supabase
         .from('inscricoes_evento')
-        .select('id, slug, ativa, max_vagas')
+        .select('id, slug, status, max_vagas, data_limite')
         .eq('evento_id', evento.id)
         .maybeSingle();
 
@@ -105,7 +106,7 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
       if (!data && (evento as any).recorrente_id) {
         const { data: recData, error: recError } = await supabase
           .from('inscricoes_evento')
-          .select('id, slug, ativa, max_vagas')
+          .select('id, slug, status, max_vagas, data_limite')
           .eq('recorrente_id', (evento as any).recorrente_id)
           .maybeSingle();
 
@@ -114,6 +115,18 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
       }
 
       if (data) {
+        const now = new Date();
+        let currentStatus = (data as any).status || 'ATIVA';
+        const dataLimite = (data as any).data_limite;
+        const eventDate = new Date(evento.data_evento);
+
+        // Auto-finalization logic
+        if (currentStatus === 'ATIVA') {
+          if ((dataLimite && new Date(dataLimite) < now) || eventDate < now || (evento as any).situacao === 'REALIZADO') {
+            currentStatus = 'FINALIZADA';
+            await (supabase.from('inscricoes_evento') as any).update({ status: 'FINALIZADA' }).eq('id', data.id);
+          }
+        }
         // Count total participants for this registration form
         const { count, error: countError } = await (supabase
           .from('inscricoes_evento_respostas')
@@ -122,8 +135,10 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
 
         setInscricao({
           ...data,
+          status: currentStatus,
           total_inscritos: count || 0,
-          limite_vagas: (data as any).max_vagas
+          limite_vagas: (data as any).max_vagas,
+          data_limite: (data as any).data_limite
         } as any);
       } else {
         setInscricao(null);
@@ -262,9 +277,17 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
           <div className="flex items-center justify-between pr-8">
             <DialogTitle className="font-display text-xl">{evento.titulo}</DialogTitle>
             {inscricao && (
-              <Badge variant="outline" className="gap-1 bg-success/10 text-success border-success/20">
+              <Badge
+                variant="outline"
+                className={`gap-1 ${inscricao.status === 'ATIVA' ? 'bg-success/10 text-success border-success/20' :
+                    inscricao.status === 'PAUSADA' ? 'bg-warning/10 text-warning border-warning/20' :
+                      'bg-muted text-muted-foreground'
+                  }`}
+              >
                 <FileText className="w-3 h-3" />
-                Inscrições Ativas
+                {inscricao.status === 'ATIVA' ? 'Inscrições Ativas' :
+                  inscricao.status === 'PAUSADA' ? 'Inscrições Pausadas' :
+                    'Inscrições Encerradas'}
               </Badge>
             )}
           </div>
@@ -332,19 +355,29 @@ export default function EventoDetailModal({ evento, open, onOpenChange }: Evento
               </div>
             ) : inscricao ? (
               <div className="space-y-4">
-                <div className="p-4 rounded-xl border border-success/30 bg-success/5 space-y-4">
+                <div className={`p-4 rounded-xl border ${inscricao.status === 'ATIVA' ? 'border-success/30 bg-success/5' :
+                    inscricao.status === 'PAUSADA' ? 'border-warning/30 bg-warning/5' :
+                      'border-muted bg-muted/5'
+                  } space-y-4`}>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <h3 className="font-semibold text-success flex items-center gap-2">
-                        <Check className="w-4 h-4" />
-                        Página de Inscrição Ativa
+                      <h3 className={`font-semibold flex items-center gap-2 ${inscricao.status === 'ATIVA' ? 'text-success' :
+                          inscricao.status === 'PAUSADA' ? 'text-warning' :
+                            'text-muted-foreground'
+                        }`}>
+                        {inscricao.status === 'ATIVA' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                        {inscricao.status === 'ATIVA' ? 'Página de Inscrição Ativa' :
+                          inscricao.status === 'PAUSADA' ? 'Página de Inscrição Pausada' :
+                            'Inscrições Encerradas'}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        Participantes podem se inscrever publicamente para este evento.
+                        {inscricao.status === 'ATIVA' ? 'Participantes podem se inscrever publicamente para este evento.' :
+                          inscricao.status === 'PAUSADA' ? 'As inscrições foram suspensas temporariamente por um administrador.' :
+                            'Este formulário não aceita mais novas inscrições.'}
                       </p>
                     </div>
                     <Badge variant="outline" className="bg-background">
-                      {inscricao.total_inscritos} / {inscricao.limite_vagas || '∞'}
+                      {inscricao.total_inscritos} / {inscricao.max_vagas || '∞'}
                     </Badge>
                   </div>
 
