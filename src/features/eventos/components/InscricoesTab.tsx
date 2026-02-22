@@ -99,6 +99,8 @@ export default function InscricoesTab() {
         max_vagas: '',
         data_limite: '',
         status: 'ATIVA' as StatusInscricao,
+        auto_confirmacao_whatsapp: false,
+        template_confirmacao: 'Olá {nome}, sua inscrição no evento {evento} foi confirmada com sucesso! 🎉',
     });
     const [campos, setCampos] = useState<FieldConfig[]>(DEFAULT_FIELDS);
     const [customFieldLabel, setCustomFieldLabel] = useState('');
@@ -248,6 +250,8 @@ export default function InscricoesTab() {
             max_vagas: '',
             data_limite: '',
             status: 'ATIVA',
+            auto_confirmacao_whatsapp: false,
+            template_confirmacao: 'Olá {nome}, sua inscrição no evento {evento} foi confirmada com sucesso! 🎉',
         });
         setCampos(DEFAULT_FIELDS);
         setEditing(null);
@@ -311,6 +315,8 @@ export default function InscricoesTab() {
             max_vagas: insc.max_vagas?.toString() || '',
             data_limite: insc.data_limite ? new Date(insc.data_limite).toISOString().slice(0, 16) : '',
             status: (insc as any).status || 'ATIVA',
+            auto_confirmacao_whatsapp: (insc as any).auto_confirmacao_whatsapp || false,
+            template_confirmacao: (insc as any).template_confirmacao || 'Olá {nome}, sua inscrição no evento {evento} foi confirmada com sucesso! 🎉',
         });
         setCampos(insc.campos_personalizados || DEFAULT_FIELDS);
         setFormStep(0);
@@ -334,6 +340,8 @@ export default function InscricoesTab() {
                 max_vagas: formData.max_vagas ? parseInt(formData.max_vagas) : null,
                 data_limite: formData.data_limite ? new Date(formData.data_limite).toISOString() : null,
                 status: formData.status,
+                auto_confirmacao_whatsapp: formData.auto_confirmacao_whatsapp,
+                template_confirmacao: formData.template_confirmacao,
                 campos_personalizados: JSON.stringify(campos),
             };
 

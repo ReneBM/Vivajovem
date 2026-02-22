@@ -17,8 +17,13 @@ import {
     ArrowLeft,
     Download,
     Users,
-    Copy
+    Copy,
+    MessageCircle,
+    CheckSquare,
+    Square
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import BulkMessageModal from './BulkMessageModal';
 import { format, parseISO } from 'date-fns';
 
 import { FieldConfig, InscricaoEvento, RespostaInscricao } from '@/types/app-types';
@@ -46,6 +51,8 @@ export default function InscricaoRespostasView({
     onDeleteResposta,
     onEditResposta
 }: InscricaoRespostasViewProps) {
+    const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+    const [isBulkMessageOpen, setIsBulkMessageOpen] = React.useState(false);
     const enabledFields = inscricao.campos_personalizados.filter(f => f.enabled);
 
     function handleExportCSV() {
@@ -91,11 +98,19 @@ export default function InscricaoRespostasView({
                         </p>
                     </div>
                 </div>
-                {respostas.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                        <Download className="w-4 h-4 mr-2" /> Exportar CSV
-                    </Button>
-                )}
+                <div className="flex gap-2">
+                    {selectedIds.length > 0 && (
+                        <Button variant="hero" size="sm" onClick={() => setIsBulkMessageOpen(true)}>
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Enviar WhatsApp ({selectedIds.length})
+                        </Button>
+                    )}
+                    {respostas.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                            <Download className="w-4 h-4 mr-2" /> Exportar CSV
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {loading ? (
@@ -125,6 +140,14 @@ export default function InscricaoRespostasView({
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-[40px]">
+                                            <Checkbox
+                                                checked={selectedIds.length === respostas.length && respostas.length > 0}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedIds(checked ? respostas.map(r => r.id) : []);
+                                                }}
+                                            />
+                                        </TableHead>
                                         <TableHead className="w-[50px]">#</TableHead>
                                         {enabledFields.map(f => (
                                             <TableHead key={f.id} className="whitespace-nowrap">{f.label}</TableHead>
@@ -135,7 +158,18 @@ export default function InscricaoRespostasView({
                                 </TableHeader>
                                 <TableBody>
                                     {respostas.map((resp, i) => (
-                                        <TableRow key={resp.id}>
+                                        <TableRow key={resp.id} className={selectedIds.includes(resp.id) ? 'bg-primary/5' : ''}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={selectedIds.includes(resp.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedIds(prev => checked
+                                                            ? [...prev, resp.id]
+                                                            : prev.filter(id => id !== resp.id)
+                                                        );
+                                                    }}
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-medium text-muted-foreground">{i + 1}</TableCell>
                                             {enabledFields.map(f => (
                                                 <TableCell key={f.id} className="whitespace-nowrap max-w-[200px] truncate" title={resp.dados[f.id]}>
@@ -171,6 +205,21 @@ export default function InscricaoRespostasView({
                     </CardContent>
                 </Card>
             )}
+
+            <BulkMessageModal
+                open={isBulkMessageOpen}
+                onOpenChange={setIsBulkMessageOpen}
+                eventName={inscricao.titulo}
+                recipients={respostas
+                    .filter(r => selectedIds.includes(r.id))
+                    .map(r => ({
+                        id: r.id,
+                        nome: r.dados['nome'] || 'Participante',
+                        telefone: r.dados['telefone'] || ''
+                    }))
+                    .filter(r => r.telefone)
+                }
+            />
         </div>
     );
 }

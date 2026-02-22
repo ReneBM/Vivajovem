@@ -34,10 +34,12 @@ export interface EventoRecorrente extends EventoRecorrenteRow { }
 
 export interface TipoEvento extends TipoEventoRow { }
 
-export interface InscricaoEvento extends Omit<InscricaoEventoRow, 'campos_personalizados'> {
+export interface InscricaoEvento extends Omit<InscricaoEventoRow, 'campos_personalizados' | 'auto_confirmacao_whatsapp' | 'template_confirmacao'> {
     status?: StatusInscricao;
     campos_personalizados: FieldConfig[];
     eventos?: { data_evento: string; situacao: SituacaoEvento } | null;
+    auto_confirmacao_whatsapp: boolean;
+    template_confirmacao: string;
 }
 
 export interface Grupo {

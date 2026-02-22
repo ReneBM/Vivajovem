@@ -88,37 +88,41 @@ export async function sendWhatsAppMessage(
  */
 export async function sendBulkMessages(
     mensagemId: string,
-    phones: string[],
+    destinatarios: { telefone: string; nome: string }[],
     message: string
 ): Promise<{ sent: number; failed: number }> {
     const config = await getWhatsAppConfig();
 
     if (!config) {
-        // API não configurada — mantém como pendente
         return { sent: 0, failed: 0 };
     }
 
-    // Atualizar status para "enviando"
     await supabase.from('whatsapp_mensagens').update({ status: 'enviando' }).eq('id', mensagemId);
 
     let sent = 0;
     let failed = 0;
     const errors: string[] = [];
 
-    for (const phone of phones) {
-        const result = await sendWhatsAppMessage(config, phone, message);
+    for (const d of destinatarios) {
+        if (!d.telefone) continue;
+
+        // Personaliza a mensagem
+        const personalizedMessage = message
+            .replace(/{nome}/g, d.nome || '')
+            .replace(/{first_name}/g, (d.nome || '').split(' ')[0]);
+
+        const result = await sendWhatsAppMessage(config, d.telefone, personalizedMessage);
         if (result.success) {
             sent++;
         } else {
             failed++;
-            errors.push(`${phone}: ${result.error}`);
+            errors.push(`${d.telefone}: ${result.error}`);
         }
-        // Pequeno delay entre envios para evitar rate limit
         await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     // Atualizar status final
-    const finalStatus = failed === phones.length ? 'falha' : sent > 0 ? 'enviado' : 'falha';
+    const finalStatus = failed === destinatarios.length ? 'falha' : sent > 0 ? 'enviado' : 'falha';
     await supabase.from('whatsapp_mensagens').update({
         status: finalStatus,
         enviado_em: finalStatus === 'enviado' ? new Date().toISOString() : null,

@@ -38,11 +38,11 @@ export default function Configuracoes() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Z-API WhatsApp config
+  // Evolution API WhatsApp config
   const [whatsappConfig, setWhatsappConfig] = useState({
-    instance_id: '',
-    instance_token: '',
     api_url: '',
+    api_key: '',
+    instance_name: '',
   });
 
   // AI config
@@ -64,9 +64,9 @@ export default function Configuracoes() {
       if (whatsapp) {
         const config = whatsapp.configuracao as Record<string, string>;
         setWhatsappConfig({
-          instance_id: config.instance_id || '',
-          instance_token: config.instance_token || '',
           api_url: config.api_url || '',
+          api_key: config.api_key || '',
+          instance_name: config.instance_name || '',
         });
       }
 
@@ -88,15 +88,18 @@ export default function Configuracoes() {
       const existing = apiConfigs.find((c) => c.tipo === 'whatsapp');
       if (existing) {
         const { error } = await supabase.from('api_configurations')
-          .update({ configuracao: whatsappConfig, ativa: Boolean(whatsappConfig.instance_id && whatsappConfig.instance_token) })
+          .update({
+            configuracao: whatsappConfig,
+            ativa: Boolean(whatsappConfig.api_url && whatsappConfig.api_key && whatsappConfig.instance_name)
+          })
           .eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('api_configurations').insert({
           tipo: 'whatsapp',
-          nome: 'Z-API WhatsApp',
+          nome: 'Evolution API',
           configuracao: whatsappConfig,
-          ativa: Boolean(whatsappConfig.instance_id && whatsappConfig.instance_token),
+          ativa: Boolean(whatsappConfig.api_url && whatsappConfig.api_key && whatsappConfig.instance_name),
         });
         if (error) throw error;
       }
@@ -198,7 +201,7 @@ export default function Configuracoes() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-success" />
-                  <CardTitle className="font-display">Z-API WhatsApp</CardTitle>
+                  <CardTitle className="font-display">Evolution API (WhatsApp)</CardTitle>
                 </div>
                 {whatsappActive ? (
                   <Badge className="bg-success/10 text-success"><CheckCircle className="w-3 h-3 mr-1" />Configurado</Badge>
@@ -206,34 +209,34 @@ export default function Configuracoes() {
                   <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" />Não configurado</Badge>
                 )}
               </div>
-              <CardDescription>Configure sua instância Z-API para enviar mensagens via WhatsApp</CardDescription>
+              <CardDescription>Configure sua instância da Evolution API para enviar mensagens via WhatsApp</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>API da Instância (URL)</Label>
+                  <Label>URL Base da API</Label>
                   <Input
                     value={whatsappConfig.api_url}
                     onChange={(e) => setWhatsappConfig({ ...whatsappConfig, api_url: e.target.value })}
-                    placeholder="https://api.z-api.io/instances/..."
+                    placeholder="https://sua-api.com"
                   />
-                  <p className="text-xs text-muted-foreground">URL completa da API da instância Z-API</p>
+                  <p className="text-xs text-muted-foreground">URL onde a Evolution API está instalada</p>
                 </div>
                 <div className="grid gap-2">
-                  <Label>ID da Instância</Label>
-                  <Input
-                    value={whatsappConfig.instance_id}
-                    onChange={(e) => setWhatsappConfig({ ...whatsappConfig, instance_id: e.target.value })}
-                    placeholder="Ex: 3EE9CC1B..."
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Token da Instância</Label>
+                  <Label>API Key (Global ou da Instância)</Label>
                   <Input
                     type="password"
-                    value={whatsappConfig.instance_token}
-                    onChange={(e) => setWhatsappConfig({ ...whatsappConfig, instance_token: e.target.value })}
-                    placeholder="Token de acesso da instância"
+                    value={whatsappConfig.api_key}
+                    onChange={(e) => setWhatsappConfig({ ...whatsappConfig, api_key: e.target.value })}
+                    placeholder="Token de segurança"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Nome da Instância</Label>
+                  <Input
+                    value={whatsappConfig.instance_name}
+                    onChange={(e) => setWhatsappConfig({ ...whatsappConfig, instance_name: e.target.value })}
+                    placeholder="Ex: VivaJovem"
                   />
                 </div>
               </div>

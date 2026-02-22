@@ -132,10 +132,11 @@ export default function Marketing() {
     setIsSubmitting(true);
 
     try {
-      const selectedPhones = destinatarios
+      const selectedRecipients = destinatarios
         .filter(d => formData.selectedIds.includes(d.id))
-        .map(d => d.telefone)
-        .filter(Boolean) as string[];
+        .map(d => ({ telefone: d.telefone || '', nome: d.nome }));
+
+      const selectedPhones = selectedRecipients.map(r => r.telefone).filter(Boolean);
 
       const { data, error } = await supabase.from('whatsapp_mensagens').insert({
         tipo: formData.tipo,
@@ -144,10 +145,11 @@ export default function Marketing() {
         agendado_para: formData.tipo === 'agendada' && formData.agendado_para ? formData.agendado_para : null,
         status: 'pendente',
         created_by: user?.id,
-      } as any).select().single();
+      }).select().single();
 
       if (error) throw error;
 
+      const newMsg = data as Mensagem;
       toast.success('Mensagem criada!');
       setIsDialogOpen(false);
       setFormData({ tipo: 'manual', mensagem: '', selectedIds: [], agendado_para: '' });
@@ -155,8 +157,8 @@ export default function Marketing() {
       fetchMensagens();
 
       // Try to send if API is configured and not scheduled
-      if (data && formData.tipo !== 'agendada') {
-        const result = await sendBulkMessages(data.id, selectedPhones, formData.mensagem);
+      if (newMsg && formData.tipo !== 'agendada') {
+        const result = await sendBulkMessages(newMsg.id, selectedRecipients, formData.mensagem);
         if (result.sent > 0) {
           toast.success(`${result.sent} mensagem(ns) enviada(s)!`);
           if (result.failed > 0) toast.warning(`${result.failed} falhou(aram)`);
@@ -174,7 +176,10 @@ export default function Marketing() {
 
   async function retrySend(msg: Mensagem) {
     toast.info('Reenviando...');
-    const result = await sendBulkMessages(msg.id, msg.destinatarios, msg.mensagem);
+    // No retry, como o banco só guarda telefones hoje, tentamos reconstruir ou enviar simples.
+    // Idealmente, o banco também deveria guardar o nome se quisermos personalizar no retry.
+    const recipients = (msg.destinatarios || []).map(tel => ({ telefone: tel, nome: '' }));
+    const result = await sendBulkMessages(msg.id, recipients, msg.mensagem);
     if (result.sent > 0) toast.success(`${result.sent} enviada(s)!`);
     else toast.error('Falha no reenvio');
     fetchMensagens();

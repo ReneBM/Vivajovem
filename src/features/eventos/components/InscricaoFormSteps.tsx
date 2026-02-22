@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
     Select,
     SelectContent,
@@ -60,6 +61,8 @@ interface InscricaoFormData {
     data_limite: string;
     recorrente_id: string;
     status: 'ATIVA' | 'PAUSADA' | 'FINALIZADA';
+    auto_confirmacao_whatsapp: boolean;
+    template_confirmacao: string;
 }
 
 interface InscricaoFormStepsProps {
@@ -231,6 +234,41 @@ export default function InscricaoFormSteps({
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="space-y-4 p-4 rounded-xl border border-success/20 bg-success/5">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-success font-semibold flex items-center gap-2">
+                                    <Phone className="w-4 h-4" /> Auto-Confirmação WhatsApp
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground">Enviar mensagem automática após inscrição</p>
+                            </div>
+                            <Switch
+                                checked={formData.auto_confirmacao_whatsapp}
+                                onCheckedChange={(v) => setFormData(prev => ({ ...prev, auto_confirmacao_whatsapp: v }))}
+                            />
+                        </div>
+
+                        {formData.auto_confirmacao_whatsapp && (
+                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                <Label className="text-xs">Template da Mensagem</Label>
+                                <Textarea
+                                    value={formData.template_confirmacao}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, template_confirmacao: e.target.value }))}
+                                    placeholder="Use {nome}, {evento}, {data}..."
+                                    rows={3}
+                                    className="text-sm bg-white/50"
+                                />
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {['{nome}', '{first_name}', '{evento}', '{data}', '{hora}'].map(tag => (
+                                        <Badge key={tag} variant="outline" className="text-[9px] cursor-help" title="Clique para copiar">
+                                            {tag}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2"><Palette className="w-4 h-4" /> Cor primária</Label>

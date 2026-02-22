@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import { format, parseISO } from 'date-fns';
+import { sendWhatsAppMessage, getWhatsAppConfig } from '@/features/marketing/services/whatsappService';
 import { FieldConfig, InscricaoEvento } from '@/types/app-types';
 import { formatPhoneNumber, formatCPF } from '@/lib/formatters';
 
@@ -147,6 +148,28 @@ export default function InscricaoEventoPublicaPage() {
                 .insert({ inscricao_id: inscricao.id, dados: formData });
 
             if (insertErr) throw insertErr;
+
+            // WhatsApp Automation (Smart Confirm)
+            if (inscricao.auto_confirmacao_whatsapp && formData.telefone) {
+                try {
+                    const waConfig = await getWhatsAppConfig();
+                    if (waConfig) {
+                        const eventDate = inscricao.eventos?.data_evento ? parseISO(inscricao.eventos.data_evento) : null;
+
+                        const msg = (inscricao.template_confirmacao || '')
+                            .replace(/{nome}/g, formData.nome || '')
+                            .replace(/{first_name}/g, (formData.nome || '').split(' ')[0])
+                            .replace(/{evento}/g, inscricao.titulo)
+                            .replace(/{data}/g, eventDate ? format(eventDate, 'dd/MM/yyyy') : '')
+                            .replace(/{hora}/g, eventDate ? format(eventDate, 'HH:mm') : '');
+
+                        await sendWhatsAppMessage(waConfig, formData.telefone, msg);
+                    }
+                } catch (waErr) {
+                    console.error('Error sending auto-confirmation WhatsApp:', waErr);
+                }
+            }
+
             setSubmitted(true);
         } catch {
             toast.error('Erro ao enviar inscrição. Tente novamente.');
