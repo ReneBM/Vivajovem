@@ -248,18 +248,23 @@ export default function InscricoesTab() {
 
     function handleTituloRemove() { setFormData(prev => ({ ...prev, imagem_titulo_url: '' })); }
 
-    function openEdit(insc: any) {
+    function openEdit(insc: InscricaoEvento) {
         setEditing(insc);
         setFormData({
-            titulo: insc.titulo, descricao: insc.descricao || '', slug: insc.slug,
-            evento_id: insc.evento_id || '', recorrente_id: insc.recorrente_id || '',
-            cor_primaria: insc.cor_primaria, cor_fundo: insc.cor_fundo,
+            titulo: insc.titulo,
+            descricao: insc.descricao || '',
+            slug: insc.slug,
+            evento_id: insc.evento_id || '',
+            recorrente_id: (insc as any).recorrente_id || '',
+            cor_primaria: insc.cor_primaria,
+            cor_fundo: insc.cor_fundo,
             imagem_capa_url: insc.imagem_capa_url || '',
             imagem_titulo_url: insc.imagem_titulo_url || '',
             max_vagas: insc.max_vagas?.toString() || '',
-            data_limite: insc.data_limite || '', ativa: insc.ativa,
+            data_limite: insc.data_limite ? new Date(insc.data_limite).toISOString().slice(0, 16) : '',
+            ativa: insc.ativa,
         });
-        setCampos(insc.campos_personalizados?.length > 0 ? insc.campos_personalizados : DEFAULT_FIELDS);
+        setCampos(insc.campos_personalizados || DEFAULT_FIELDS);
         setFormStep(0);
         setIsDialogOpen(true);
     }

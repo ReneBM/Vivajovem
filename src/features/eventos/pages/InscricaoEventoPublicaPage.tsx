@@ -29,6 +29,7 @@ import {
     CreditCard
 } from 'lucide-react';
 
+import { format, parseISO } from 'date-fns';
 import { FieldConfig, InscricaoEvento } from '@/types/app-types';
 import { formatPhoneNumber, formatCPF } from '@/lib/formatters';
 
@@ -91,7 +92,7 @@ export default function InscricaoEventoPublicaPage() {
 
             // Check date limit
             if (inscData.data_limite) {
-                const limit = new Date(inscData.data_limite + 'T23:59:59');
+                const limit = new Date(inscData.data_limite);
                 if (new Date() > limit) {
                     setError('O prazo de inscrição já encerrou.');
                     return;
@@ -224,7 +225,7 @@ export default function InscricaoEventoPublicaPage() {
                                 <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
                                     <Clock className="w-4 h-4 text-gray-400" />
                                     <span className="text-sm text-gray-300">
-                                        Até <strong className="text-white">{new Date(inscricao.data_limite + 'T00:00:00').toLocaleDateString('pt-BR')}</strong>
+                                        Até <strong className="text-white">{format(parseISO(inscricao.data_limite), "dd/MM/yyyy 'às' HH:mm")}</strong>
                                     </span>
                                 </div>
                             </div>

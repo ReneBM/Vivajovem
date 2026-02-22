@@ -214,7 +214,7 @@ export default function InscricaoFormSteps({
                         </div>
                         <div className="space-y-2">
                             <Label>Data limite</Label>
-                            <Input type="date" value={formData.data_limite} onChange={(e) => setFormData(prev => ({ ...prev, data_limite: e.target.value }))} />
+                            <Input type="datetime-local" value={formData.data_limite} onChange={(e) => setFormData(prev => ({ ...prev, data_limite: e.target.value }))} />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
