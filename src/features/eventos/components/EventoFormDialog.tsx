@@ -19,7 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Plus, Loader2 } from 'lucide-react';
-import { TipoEvento, Grupo, Campanha } from '@/types/app-types';
+import { TipoEvento, Grupo, Campanha, SituacaoEvento } from '@/types/app-types';
 
 interface EventoFormData {
     titulo: string;
@@ -28,6 +28,7 @@ interface EventoFormData {
     hora_evento: string;
     tipo: string;
     grupo_id: string;
+    situacao: SituacaoEvento;
 }
 
 interface EventoFormDialogProps {
@@ -115,6 +116,19 @@ export default function EventoFormDialog({
                             </Select>
                         </div>
                     </div>
+                    {isEditing && (
+                        <div className="space-y-2">
+                            <Label>Situação do Evento</Label>
+                            <Select value={formData.situacao} onValueChange={(v) => onFormChange({ ...formData, situacao: v as any })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="AGENDADO">Agendado</SelectItem>
+                                    <SelectItem value="REALIZADO">Realizado</SelectItem>
+                                    <SelectItem value="CANCELADO">Cancelado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label>Descrição</Label>
                         <Textarea value={formData.descricao} onChange={(e) => onFormChange({ ...formData, descricao: e.target.value })} placeholder="Detalhes do evento" rows={3} />

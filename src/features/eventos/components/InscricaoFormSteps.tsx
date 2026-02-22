@@ -59,7 +59,7 @@ interface InscricaoFormData {
     max_vagas: string;
     data_limite: string;
     recorrente_id: string;
-    ativa: boolean;
+    status: 'ATIVA' | 'PAUSADA' | 'FINALIZADA';
 }
 
 interface InscricaoFormStepsProps {
@@ -216,6 +216,20 @@ export default function InscricaoFormSteps({
                             <Label>Data limite</Label>
                             <Input type="datetime-local" value={formData.data_limite} onChange={(e) => setFormData(prev => ({ ...prev, data_limite: e.target.value }))} />
                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Status da Inscrição</Label>
+                        <Select
+                            value={formData.status}
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, status: v as any }))}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ATIVA">Ativa</SelectItem>
+                                <SelectItem value="PAUSADA">Pausada</SelectItem>
+                                <SelectItem value="FINALIZADA" disabled>Finalizada (Automático)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

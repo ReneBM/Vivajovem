@@ -20,8 +20,12 @@ export interface FieldConfig {
     icon?: string;
 }
 
+export type StatusInscricao = 'ATIVA' | 'PAUSADA' | 'FINALIZADA';
+export type SituacaoEvento = 'AGENDADO' | 'REALIZADO' | 'CANCELADO';
+
 // Extended Types (with Relations or Parsed JSON)
 export interface Evento extends EventoRow {
+    situacao?: SituacaoEvento;
     grupos?: { nome: string } | null;
     campanhas?: { nome: string } | null;
 }
@@ -31,6 +35,7 @@ export interface EventoRecorrente extends EventoRecorrenteRow { }
 export interface TipoEvento extends TipoEventoRow { }
 
 export interface InscricaoEvento extends Omit<InscricaoEventoRow, 'campos_personalizados'> {
+    status?: StatusInscricao;
     campos_personalizados: FieldConfig[];
 }
 

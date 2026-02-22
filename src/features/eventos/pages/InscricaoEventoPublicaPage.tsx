@@ -90,11 +90,22 @@ export default function InscricaoEventoPublicaPage() {
                 .eq('inscricao_id', row.id);
             setTotalInscritos(count || 0);
 
+            // Check status
+            if (inscData.status === 'PAUSADA') {
+                setError('As inscrições para este evento estão temporariamente pausadas.');
+                return;
+            }
+            if (inscData.status === 'FINALIZADA') {
+                setError('As inscrições para este evento já foram encerradas.');
+                return;
+            }
+
             // Check date limit
             if (inscData.data_limite) {
                 const limit = new Date(inscData.data_limite);
                 if (new Date() > limit) {
                     setError('O prazo de inscrição já encerrou.');
+                    // Optionally update status in background (client-side update)
                     return;
                 }
             }

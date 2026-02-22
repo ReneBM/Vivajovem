@@ -36,6 +36,10 @@ import {
     Edit,
     Trash2,
     QrCode,
+    Share2,
+    MoreVertical,
+    Calendar,
+    Clock,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -47,7 +51,7 @@ import InscricaoRespostasView from './InscricaoRespostasView';
 import InscricaoFormSteps from './InscricaoFormSteps';
 import QRCodeDialog from './QRCodeDialog';
 
-import { FieldConfig, InscricaoEvento, RespostaInscricao, Evento, EventoRecorrente } from '@/types/app-types';
+import { FieldConfig, InscricaoEvento, RespostaInscricao, Evento, EventoRecorrente, StatusInscricao } from '@/types/app-types';
 
 type Resposta = RespostaInscricao;
 
@@ -94,7 +98,7 @@ export default function InscricoesTab() {
         imagem_titulo_url: '',
         max_vagas: '',
         data_limite: '',
-        ativa: true,
+        status: 'ATIVA' as StatusInscricao,
     });
     const [campos, setCampos] = useState<FieldConfig[]>(DEFAULT_FIELDS);
     const [customFieldLabel, setCustomFieldLabel] = useState('');
@@ -130,10 +134,32 @@ export default function InscricoesTab() {
         try {
             const { data, error } = await supabase.from('inscricoes_evento').select('*').order('created_at', { ascending: false });
             if (error) throw error;
-            setInscricoes((data || []).map((d: any) => ({
+
+            const fetched = (data || []).map((d: any) => ({
                 ...d,
                 campos_personalizados: (d.campos_personalizados || DEFAULT_FIELDS) as unknown as FieldConfig[],
-            } as unknown as InscricaoEvento)));
+            } as unknown as InscricaoEvento));
+
+            // Auto-finalization logic
+            const now = new Date();
+            const toUpdate = fetched.filter(i =>
+                i.status === 'ATIVA' &&
+                i.data_limite &&
+                new Date(i.data_limite) < now
+            );
+
+            if (toUpdate.length > 0) {
+                const ids = toUpdate.map(i => i.id);
+                await (supabase.from('inscricoes_evento') as any).update({ status: 'FINALIZADA' }).in('id', ids);
+                // Re-fetch to get updated statuses
+                const { data: updatedData } = await supabase.from('inscricoes_evento').select('*').order('created_at', { ascending: false });
+                setInscricoes((updatedData || []).map((d: any) => ({
+                    ...d,
+                    campos_personalizados: (d.campos_personalizados || DEFAULT_FIELDS) as unknown as FieldConfig[],
+                } as unknown as InscricaoEvento)));
+            } else {
+                setInscricoes(fetched);
+            }
         } catch (error) { console.error('Error fetching inscricoes:', error); }
     }
 
@@ -197,9 +223,18 @@ export default function InscricoesTab() {
 
     function resetForm() {
         setFormData({
-            titulo: '', descricao: '', slug: '', evento_id: '', recorrente_id: '',
-            cor_primaria: '#D4A017', cor_fundo: '#0F0F0F', imagem_capa_url: '',
-            imagem_titulo_url: '', max_vagas: '', data_limite: '', ativa: true,
+            titulo: '',
+            descricao: '',
+            slug: '',
+            evento_id: '',
+            recorrente_id: '',
+            cor_primaria: '#D4A017',
+            cor_fundo: '#0F0F0F',
+            imagem_capa_url: '',
+            imagem_titulo_url: '',
+            max_vagas: '',
+            data_limite: '',
+            status: 'ATIVA',
         });
         setCampos(DEFAULT_FIELDS);
         setEditing(null);
@@ -262,7 +297,7 @@ export default function InscricoesTab() {
             imagem_titulo_url: insc.imagem_titulo_url || '',
             max_vagas: insc.max_vagas?.toString() || '',
             data_limite: insc.data_limite ? new Date(insc.data_limite).toISOString().slice(0, 16) : '',
-            ativa: insc.ativa,
+            status: (insc as any).status || 'ATIVA',
         });
         setCampos(insc.campos_personalizados || DEFAULT_FIELDS);
         setFormStep(0);
@@ -283,10 +318,10 @@ export default function InscricoesTab() {
                 cor_fundo: formData.cor_fundo,
                 imagem_capa_url: formData.imagem_capa_url || null,
                 imagem_titulo_url: formData.imagem_titulo_url || null,
-                campos_personalizados: campos,
                 max_vagas: formData.max_vagas ? parseInt(formData.max_vagas) : null,
-                data_limite: formData.data_limite || null,
-                ativa: formData.ativa,
+                data_limite: formData.data_limite ? new Date(formData.data_limite).toISOString() : null,
+                status: formData.status,
+                campos_personalizados: JSON.stringify(campos),
             };
 
             if (editing) {
@@ -480,8 +515,13 @@ export default function InscricoesTab() {
                                                         <CardTitle className="text-base font-display">{insc.titulo}</CardTitle>
                                                         {eventoRef && <p className="text-xs text-muted-foreground mt-1">{eventoRef.titulo} • {format(parseISO(eventoRef.data_evento), 'dd/MM/yyyy')}</p>}
                                                         <div className="flex gap-2 mt-2 flex-wrap">
-                                                            <Badge variant={insc.ativa ? 'default' : 'secondary'} className={insc.ativa ? 'bg-success/10 text-success' : ''}>
-                                                                {insc.ativa ? <><CheckCircle2 className="w-3 h-3 mr-1" /> Ativa</> : <><XCircle className="w-3 h-3 mr-1" /> Inativa</>}
+                                                            <Badge
+                                                                variant={insc.status === 'ATIVA' ? 'default' : insc.status === 'PAUSADA' ? 'outline' : 'secondary'}
+                                                                className={insc.status === 'ATIVA' ? 'bg-success/10 text-success' : insc.status === 'PAUSADA' ? 'bg-warning/10 text-warning' : ''}
+                                                            >
+                                                                {insc.status === 'ATIVA' ? <><CheckCircle2 className="w-3 h-3 mr-1" /> Ativa</> :
+                                                                    insc.status === 'PAUSADA' ? <><XCircle className="w-3 h-3 mr-1" /> Pausada</> :
+                                                                        <><Clock className="w-3 h-3 mr-1" /> Finalizada</>}
                                                             </Badge>
                                                         </div>
                                                     </div>

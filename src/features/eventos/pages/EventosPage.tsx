@@ -64,7 +64,7 @@ import {
   generateRecurringDates,
   describeRecurrence,
 } from '@/features/eventos/utils/recurrence-utils';
-import { Evento, EventoRecorrente, TipoEvento, Grupo, Campanha } from '@/types/app-types';
+import { Evento, EventoRecorrente, TipoEvento, Grupo, Campanha, SituacaoEvento } from '@/types/app-types';
 
 const DEFAULT_COLOR = '#D4A017';
 
@@ -121,6 +121,7 @@ export default function Eventos() {
   // Evento form
   const [formData, setFormData] = useState({
     titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: '', grupo_id: '',
+    situacao: 'AGENDADO' as SituacaoEvento,
   });
 
   // Recorrente form
@@ -165,18 +166,45 @@ export default function Eventos() {
     setLoading(false);
   }
 
-  async function fetchEventos(month: Date) {
+  async function fetchEventos(date: Date) {
     try {
-      const inicioMes = startOfMonth(month).toISOString();
-      const fimMes = endOfMonth(month).toISOString();
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1).toISOString();
+      const lastDay = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+
       const { data, error } = await supabase
         .from('eventos')
-        .select('*, grupos(nome)')
-        .gte('data_evento', inicioMes)
-        .lte('data_evento', fimMes)
+        .select(`*, grupos(nome), campanhas(nome)`)
+        .gte('data_evento', firstDay)
+        .lte('data_evento', lastDay)
         .order('data_evento', { ascending: true });
+
       if (error) throw error;
-      setEventos((data as any) || []);
+
+      const fetched = (data as any) || [];
+
+      // Auto-realization logic
+      const now = new Date();
+      const toUpdate = fetched.filter((e: any) =>
+        e.situacao === 'AGENDADO' &&
+        new Date(e.data_evento) < now
+      );
+
+      if (toUpdate.length > 0) {
+        const ids = toUpdate.map((e: any) => e.id);
+        await (supabase.from('eventos') as any).update({ situacao: 'REALIZADO' }).in('id', ids);
+        // Re-fetch
+        const { data: updatedData } = await supabase
+          .from('eventos')
+          .select(`*, grupos(nome), campanhas(nome)`)
+          .gte('data_evento', firstDay)
+          .lte('data_evento', lastDay)
+          .order('data_evento', { ascending: true });
+        setEventos((updatedData as any) || []);
+      } else {
+        setEventos(fetched);
+      }
     } catch (error) { console.error('Error fetching eventos:', error); toast.error('Erro ao carregar eventos'); }
   }
 
@@ -208,7 +236,10 @@ export default function Eventos() {
 
   function resetForm() {
     const defaultTipo = tiposEvento.length > 0 ? tiposEvento[0].nome : '';
-    setFormData({ titulo: '', descricao: '', data_evento: '', hora_evento: '', tipo: defaultTipo, grupo_id: '' });
+    setFormData({
+      titulo: '', descricao: '', data_evento: '', hora_evento: '',
+      tipo: defaultTipo, grupo_id: '', situacao: 'AGENDADO'
+    });
     setEditingEvento(null);
   }
 
@@ -218,6 +249,7 @@ export default function Eventos() {
     setFormData({
       titulo: evento.titulo, descricao: evento.descricao || '', data_evento: format(parsedDate, 'yyyy-MM-dd'),
       hora_evento: format(parsedDate, 'HH:mm'), tipo: evento.tipo, grupo_id: evento.grupo_id || '',
+      situacao: evento.situacao || 'AGENDADO',
     });
     setIsDialogOpen(true);
   }
@@ -228,7 +260,7 @@ export default function Eventos() {
     try {
       const dataEvento = new Date(`${formData.data_evento}T${formData.hora_evento}`);
       const selectedTipo = tiposEvento.find(t => t.nome === formData.tipo);
-      const payload: Database['public']['Tables']['eventos']['Insert'] = {
+      const payload: any = {
         titulo: formData.titulo,
         descricao: formData.descricao || null,
         data_evento: dataEvento.toISOString(),
@@ -236,6 +268,7 @@ export default function Eventos() {
         tipo_id: selectedTipo?.id || null,
         grupo_id: formData.grupo_id || null,
         campanha_id: null,
+        situacao: formData.situacao,
       };
       if (editingEvento) {
         const { error } = await supabase.from('eventos').update(payload).eq('id', editingEvento.id);
