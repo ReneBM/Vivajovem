@@ -11,30 +11,41 @@ export default function EvolutionManagerPage() {
     useEffect(() => {
         async function fetchConfig() {
             try {
+                // Check if user is authenticated first (for diagnostic)
+                const { data: { session } } = await supabase.auth.getSession();
+
                 const { data, error: dbError } = await supabase
                     .from('api_configurations')
                     .select('configuracao')
                     .eq('tipo', 'whatsapp')
-                    .single();
+                    .maybeSingle();
 
-                if (dbError || !data) {
-                    setError('Configuração do WhatsApp não encontrada.');
+                if (dbError) {
+                    setError(`Erro de Banco de Dados: ${dbError.message}`);
+                    return;
+                }
+
+                if (!data) {
+                    if (!session) {
+                        setError('Acesso negado. Você precisa estar logado ou aplicar a política de RLS pública (SQL) que enviei anteriormente.');
+                    } else {
+                        setError('A configuração do WhatsApp não foi encontrada no banco. Vá em "Configurações > APIs" e salve os dados da Evolution API primeiro.');
+                    }
                     return;
                 }
 
                 const config = data.configuracao as any;
-                if (!config.api_url) {
-                    setError('URL da API não configurada.');
+                if (!config || !config.api_url) {
+                    setError('A URL da API não foi definida nas configurações do WhatsApp.');
                     return;
                 }
 
-                // Evolution API Dashboard usually resides at /manager on the same API URL
-                // Let's ensure it's a valid URL and add /manager if not present
+                // Evolution API Dashboard resides at /manager
                 let baseUrl = config.api_url.replace(/\/$/, '');
                 setManagerUrl(`${baseUrl}/manager`);
             } catch (err) {
                 console.error('Error fetching manager config:', err);
-                setError('Erro ao carregar configurações.');
+                setError('Erro inesperado ao carregar configurações.');
             } finally {
                 setLoading(false);
             }
@@ -66,13 +77,24 @@ export default function EvolutionManagerPage() {
     }
 
     return (
-        <div className="w-full h-screen overflow-hidden bg-background">
-            <iframe
-                src={managerUrl}
-                className="w-full h-full border-none"
-                title="Evolution API Manager"
-                allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
-            />
+        <div className="w-full h-screen flex flex-col bg-background">
+            <div className="bg-primary/10 p-2 flex items-center justify-between border-b px-4">
+                <div className="flex items-center gap-2 text-sm text-foreground/80">
+                    <AlertCircle className="w-4 h-4 text-primary" />
+                    <span>Se o painel abaixo estiver em branco, pode ser um bloqueio de segurança do navegador.</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => window.open(managerUrl, '_blank')}>
+                    Abrir em Nova Aba
+                </Button>
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+                <iframe
+                    src={managerUrl}
+                    className="w-full h-full border-none"
+                    title="Evolution API Manager"
+                    allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
+                />
+            </div>
         </div>
     );
 }
