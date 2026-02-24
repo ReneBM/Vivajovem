@@ -26,6 +26,7 @@ import Aniversariantes from "@/features/jovens/pages/AniversariantesPage";
 import Usuarios from "@/features/usuarios/pages/UsuariosPage";
 import Marketing from "@/features/marketing/pages/MarketingPage";
 import Funcoes from "@/features/funcoes/pages/FuncoesPage";
+import EvolutionManager from "./pages/EvolutionManagerPage";
 import NotFound from "./pages/NotFound";
 
 // Layout
@@ -67,6 +68,7 @@ const App = () => (
             </Route>
 
             {/* Catch-all */}
+            <Route path="/Manager" element={<EvolutionManager />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
