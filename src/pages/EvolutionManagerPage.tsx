@@ -79,9 +79,12 @@ export default function EvolutionManagerPage() {
     return (
         <div className="w-full h-screen flex flex-col bg-background">
             <div className="bg-primary/10 p-2 flex items-center justify-between border-b px-4">
-                <div className="flex items-center gap-2 text-sm text-foreground/80">
-                    <AlertCircle className="w-4 h-4 text-primary" />
-                    <span>Se o painel abaixo estiver em branco, pode ser um bloqueio de segurança do navegador.</span>
+                <div className="flex flex-col text-sm text-foreground/80">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-primary" />
+                        <span>Se o painel abaixo estiver em branco ou repetido, verifique se a URL da API está correta.</span>
+                    </div>
+                    <span className="text-[10px] opacity-50 ml-6">Destino: {managerUrl}</span>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => window.open(managerUrl, '_blank')}>
                     Abrir em Nova Aba
