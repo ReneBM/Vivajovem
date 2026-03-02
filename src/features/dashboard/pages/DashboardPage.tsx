@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import StatCard from "@/features/dashboard/components/StatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,8 @@ export default function Dashboard() {
   const [aniversariantes, setAniversariantes] = useState<{ id: string; nome: string; data: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [proximoEvento, setProximoEvento] = useState<{ titulo: string; data: string } | null>(null);
+  const [userName, setUserName] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     async function fetchStats() {
@@ -168,12 +171,27 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    async function fetchUserName() {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('nome')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data?.nome) setUserName(data.nome);
+    }
+    fetchUserName();
+  }, [user]);
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">
+            {userName ? `Seja bem-vindo, ${userName.split(' ')[0]}!` : 'Dashboard'}
+          </h1>
           <p className="text-muted-foreground mt-1">Visão geral do seu ministério</p>
         </div>
         <div className="flex gap-3">
