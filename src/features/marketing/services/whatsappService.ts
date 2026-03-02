@@ -89,7 +89,8 @@ export async function sendWhatsAppMessage(
 export async function sendBulkMessages(
     mensagemId: string,
     destinatarios: { telefone: string; nome: string }[],
-    message: string
+    message: string,
+    delayConfig: { mode: 'fixo'; delay: number } | { mode: 'variavel'; min: number; max: number } = { mode: 'fixo', delay: 5000 }
 ): Promise<{ sent: number; failed: number }> {
     const config = await getWhatsAppConfig();
 
@@ -118,7 +119,12 @@ export async function sendBulkMessages(
             failed++;
             errors.push(`${d.telefone}: ${result.error}`);
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Calcular delay: fixo ou aleatório entre min e max
+        const waitMs = delayConfig.mode === 'variavel'
+            ? Math.floor(Math.random() * (delayConfig.max - delayConfig.min + 1)) + delayConfig.min
+            : delayConfig.delay;
+        await new Promise(resolve => setTimeout(resolve, waitMs));
     }
 
     // Atualizar status final

@@ -83,7 +83,8 @@ const modules: NavModule[] = [
     permissionPrefix: 'marketing',
     items: [
       { name: 'Campanhas', href: '/campanhas', icon: Megaphone, permission: 'marketing.campanhas.visualizar' },
-      { name: 'WhatsApp', href: '/marketing', icon: MessageCircle, permission: 'marketing.whatsapp.visualizar' },
+      { name: 'Mensagens', href: '/marketing', icon: MessageCircle, permission: 'marketing.whatsapp.visualizar' },
+      { name: 'Instâncias WhatsApp', href: '/whatsapp', icon: Settings, permission: 'marketing.whatsapp.visualizar' },
     ],
   },
   {

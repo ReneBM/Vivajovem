@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -24,7 +25,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Plus, Send, Clock, MessageCircle, Users, Loader2, CheckCircle,
   XCircle, AlertCircle, Search, Calendar, RefreshCw, FileText,
-  Edit, Trash2, MoreHorizontal, Zap,
+  Edit, Trash2, MoreHorizontal, Zap, Eye, User, Phone, Play, Ban, Timer,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -50,6 +51,7 @@ interface Mensagem {
   enviado_em: string | null;
   erro: string | null;
   created_at: string;
+  created_by?: string;
 }
 
 interface Template {
@@ -76,16 +78,33 @@ export default function Marketing() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [templateForm, setTemplateForm] = useState({ nome: '', mensagem: '', categoria: 'geral' });
 
+  // Message detail modal
+  const [selectedMsg, setSelectedMsg] = useState<Mensagem | null>(null);
+  const [senderName, setSenderName] = useState<string>('');
+  const [recipientNames, setRecipientNames] = useState<{ phone: string; name: string }[]>([]);
+
   const [formData, setFormData] = useState({
     tipo: 'manual',
     mensagem: '',
     selectedIds: [] as string[],
     agendado_para: '',
+    cadencia: 5,
+    cadenciaMode: 'fixo' as 'fixo' | 'variavel',
+    cadenciaMin: 1,
+    cadenciaMax: 30,
   });
 
   useEffect(() => {
     fetchAll();
   }, []);
+
+  // Polling para processar mensagens agendadas
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      await processScheduledMessages();
+    }, 30000); // Verificar a cada 30 segundos
+    return () => clearInterval(interval);
+  }, [mensagens]);
 
   async function fetchAll() {
     await Promise.all([fetchMensagens(), fetchDestinatarios(), fetchTemplates(), checkApiConfig()]);
@@ -150,15 +169,22 @@ export default function Marketing() {
       if (error) throw error;
 
       const newMsg = data as Mensagem;
-      toast.success('Mensagem criada!');
+      toast.success(
+        formData.tipo === 'agendada'
+          ? `Mensagem agendada para ${format(parseISO(formData.agendado_para), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}!`
+          : 'Mensagem criada!'
+      );
       setIsDialogOpen(false);
-      setFormData({ tipo: 'manual', mensagem: '', selectedIds: [], agendado_para: '' });
+      setFormData({ tipo: 'manual', mensagem: '', selectedIds: [], agendado_para: '', cadencia: 5, cadenciaMode: 'fixo', cadenciaMin: 1, cadenciaMax: 30 });
       setSearchDest('');
       fetchMensagens();
 
       // Try to send if API is configured and not scheduled
       if (newMsg && formData.tipo !== 'agendada') {
-        const result = await sendBulkMessages(newMsg.id, selectedRecipients, formData.mensagem);
+        const delayConfig = formData.cadenciaMode === 'variavel'
+          ? { mode: 'variavel' as const, min: formData.cadenciaMin * 1000, max: formData.cadenciaMax * 1000 }
+          : { mode: 'fixo' as const, delay: formData.cadencia * 1000 };
+        const result = await sendBulkMessages(newMsg.id, selectedRecipients, formData.mensagem, delayConfig);
         if (result.sent > 0) {
           toast.success(`${result.sent} mensagem(ns) enviada(s)!`);
           if (result.failed > 0) toast.warning(`${result.failed} falhou(aram)`);
@@ -188,6 +214,74 @@ export default function Marketing() {
   function useTemplate(template: Template) {
     setFormData(prev => ({ ...prev, mensagem: template.mensagem }));
     toast.success(`Template "${template.nome}" aplicado!`);
+  }
+
+  // ── Processar mensagens agendadas ──
+  async function processScheduledMessages() {
+    const now = new Date();
+    const agendadas = mensagens.filter(
+      m => m.tipo === 'agendada' && m.status === 'pendente' && m.agendado_para
+    );
+
+    for (const msg of agendadas) {
+      const scheduledTime = new Date(msg.agendado_para!);
+      if (scheduledTime <= now) {
+        toast.info(`Disparando mensagem agendada...`);
+        const recipients = (msg.destinatarios || []).map(tel => ({ telefone: tel, nome: '' }));
+        const result = await sendBulkMessages(msg.id, recipients, msg.mensagem);
+        if (result.sent > 0) {
+          toast.success(`Agendamento executado: ${result.sent} mensagem(ns) enviada(s)!`);
+        } else {
+          toast.error('Falha ao executar agendamento');
+        }
+        fetchMensagens();
+      }
+    }
+  }
+
+  async function sendScheduledNow(msg: Mensagem) {
+    toast.info('Enviando mensagem agendada agora...');
+    const recipients = (msg.destinatarios || []).map(tel => ({ telefone: tel, nome: '' }));
+    const result = await sendBulkMessages(msg.id, recipients, msg.mensagem);
+    if (result.sent > 0) toast.success(`${result.sent} mensagem(ns) enviada(s)!`);
+    else toast.error('Falha ao enviar');
+    fetchMensagens();
+  }
+
+  async function cancelScheduled(msg: Mensagem) {
+    await supabase.from('whatsapp_mensagens').update({
+      status: 'cancelado',
+    } as any).eq('id', msg.id);
+    toast.success('Agendamento cancelado');
+    fetchMensagens();
+  }
+
+  // ── Message Detail Modal Logic ──
+  async function openMessageDetail(msg: Mensagem) {
+    setSelectedMsg(msg);
+    setSenderName('Carregando...');
+    setRecipientNames([]);
+
+    // Buscar nome do remetente
+    if (msg.created_by) {
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('nome')
+        .eq('id', msg.created_by)
+        .single();
+      setSenderName(userData?.nome || 'Usuário desconhecido');
+    } else {
+      setSenderName('Sistema');
+    }
+
+    // Resolver telefones para nomes
+    const phones = msg.destinatarios || [];
+    const resolved: { phone: string; name: string }[] = [];
+    for (const phone of phones) {
+      const match = destinatarios.find(d => d.telefone === phone || d.telefone?.replace(/\D/g, '') === phone.replace(/\D/g, ''));
+      resolved.push({ phone, name: match?.nome || phone });
+    }
+    setRecipientNames(resolved);
   }
 
   // Template CRUD
@@ -238,6 +332,7 @@ export default function Marketing() {
       enviado: { icon: <CheckCircle className="w-3 h-3" />, label: 'Enviado', className: 'bg-success/10 text-success' },
       falha: { icon: <XCircle className="w-3 h-3" />, label: 'Falha', className: 'bg-destructive/10 text-destructive' },
       enviando: { icon: <Loader2 className="w-3 h-3 animate-spin" />, label: 'Enviando', className: 'bg-blue-500/10 text-blue-600' },
+      cancelado: { icon: <Ban className="w-3 h-3" />, label: 'Cancelado', className: 'bg-muted text-muted-foreground' },
     };
     const s = map[status] || { icon: <AlertCircle className="w-3 h-3" />, label: 'Pendente', className: '' };
     return <Badge variant="secondary" className={s.className}>{s.icon} {s.label}</Badge>;
@@ -289,6 +384,75 @@ export default function Marketing() {
                   )}
                 </div>
 
+                {/* Cadência */}
+                <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-medium">Cadência entre envios</Label>
+                    <div className="flex gap-1 bg-muted rounded-md p-0.5">
+                      <button type="button"
+                        className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'fixo' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        onClick={() => setFormData({ ...formData, cadenciaMode: 'fixo' })}
+                      >Fixo</button>
+                      <button type="button"
+                        className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'variavel' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        onClick={() => setFormData({ ...formData, cadenciaMode: 'variavel' })}
+                      >Variável</button>
+                    </div>
+                  </div>
+
+                  {formData.cadenciaMode === 'fixo' ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground w-6">1s</span>
+                        <Slider
+                          value={[formData.cadencia]}
+                          onValueChange={([v]) => setFormData({ ...formData, cadencia: v })}
+                          min={1} max={60} step={1} className="flex-1"
+                        />
+                        <span className="text-xs text-muted-foreground w-8">60s</span>
+                        <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadencia}s</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Intervalo fixo de <strong>{formData.cadencia}s</strong> entre cada envio.
+                        {formData.selectedIds.length > 0 && (
+                          <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * formData.cadencia / 60)} min</strong></span>
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-12">Mínimo</span>
+                          <Slider
+                            value={[formData.cadenciaMin]}
+                            onValueChange={([v]) => setFormData({ ...formData, cadenciaMin: Math.min(v, formData.cadenciaMax - 1) })}
+                            min={1} max={59} step={1} className="flex-1"
+                          />
+                          <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMin}s</Badge>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-12">Máximo</span>
+                          <Slider
+                            value={[formData.cadenciaMax]}
+                            onValueChange={([v]) => setFormData({ ...formData, cadenciaMax: Math.max(v, formData.cadenciaMin + 1) })}
+                            min={2} max={60} step={1} className="flex-1"
+                          />
+                          <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMax}s</Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Intervalo <strong>aleatório entre {formData.cadenciaMin}s e {formData.cadenciaMax}s</strong> para simular envio humano.
+                        {formData.selectedIds.length > 0 && (
+                          <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * ((formData.cadenciaMin + formData.cadenciaMax) / 2) / 60)} min</strong></span>
+                        )}
+                      </p>
+                    </>
+                  )}
+                </div>
+
                 {/* Message with template selector */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -334,18 +498,24 @@ export default function Marketing() {
                   <ScrollArea className="h-48 border rounded-lg p-2">
                     {filteredDest.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">Nenhum contato com telefone</p>
-                    ) : filteredDest.map(d => (
-                      <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => toggleDest(d.id)}>
-                        <Checkbox checked={formData.selectedIds.includes(d.id)} />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{d.nome}</p>
-                          <p className="text-xs text-muted-foreground">{d.telefone}</p>
+                    ) : filteredDest.map(d => {
+                      const isSelected = formData.selectedIds.includes(d.id);
+                      return (
+                        <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => toggleDest(d.id)}>
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                            }`}>
+                            {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{d.nome}</p>
+                            <p className="text-xs text-muted-foreground">{d.telefone}</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] ${d.tipo === 'lider' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'}`}>
+                            {d.tipo === 'lider' ? 'Líder' : 'Jovem'}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className={`text-[10px] ${d.tipo === 'lider' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'}`}>
-                          {d.tipo === 'lider' ? 'Líder' : 'Jovem'}
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </ScrollArea>
                 </div>
 
@@ -447,7 +617,7 @@ export default function Marketing() {
               ) : (
                 <div className="space-y-3">
                   {filtered.map(msg => (
-                    <Card key={msg.id} className="glass-card hover:shadow-md transition-shadow">
+                    <Card key={msg.id} className="glass-card hover:shadow-md transition-shadow cursor-pointer" onClick={() => openMessageDetail(msg)}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
@@ -466,7 +636,7 @@ export default function Marketing() {
                           <div className="flex items-center gap-2">
                             {getStatusBadge(msg.status)}
                             {msg.status === 'falha' && apiConfigured && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => retrySend(msg)} title="Reenviar">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); retrySend(msg); }} title="Reenviar">
                                 <RefreshCw className="w-4 h-4" />
                               </Button>
                             )}
@@ -484,6 +654,29 @@ export default function Marketing() {
                         {msg.erro && (
                           <p className="text-xs text-destructive mt-2 bg-destructive/5 p-2 rounded">{msg.erro}</p>
                         )}
+                        {/* Botões de ação para agendadas */}
+                        {msg.tipo === 'agendada' && msg.status === 'pendente' && (
+                          <div className="flex gap-2 mt-3 pt-2 border-t">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={(e) => { e.stopPropagation(); sendScheduledNow(msg); }}
+                            >
+                              <Play className="w-3 h-3 mr-1" /> Enviar Agora
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-destructive hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); cancelScheduled(msg); }}
+                            >
+                              <Ban className="w-3 h-3 mr-1" /> Cancelar
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -493,6 +686,87 @@ export default function Marketing() {
           );
         })}
       </Tabs>
+
+      {/* ══ Message Detail Modal ══ */}
+      <Dialog open={!!selectedMsg} onOpenChange={(open) => !open && setSelectedMsg(null)}>
+        <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Detalhes da Mensagem
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMsg && format(parseISO(selectedMsg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMsg && (
+            <div className="space-y-5 py-2">
+              {/* Status + Remetente */}
+              <div className="flex items-center justify-between">
+                {getStatusBadge(selectedMsg.status)}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="w-4 h-4" />
+                  <span>Enviado por: <strong className="text-foreground">{senderName}</strong></span>
+                </div>
+              </div>
+
+              {/* Mensagem */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Mensagem</Label>
+                <div className="p-4 rounded-lg bg-muted/50 border">
+                  <p className="text-sm whitespace-pre-wrap">{selectedMsg.mensagem}</p>
+                </div>
+              </div>
+
+              {/* Destinatários */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Destinatários ({recipientNames.length})
+                </Label>
+                <ScrollArea className="max-h-48 border rounded-lg">
+                  <div className="p-2 space-y-1">
+                    {recipientNames.length === 0 ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">Carregando...</span>
+                      </div>
+                    ) : (
+                      recipientNames.map((r, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
+                          <div className="p-1.5 rounded-full bg-primary/10">
+                            <User className="w-3 h-3 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{r.name}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Phone className="w-3 h-3" />{r.phone}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Info adicional */}
+              {selectedMsg.enviado_em && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3 text-success" />
+                  Enviado em {format(parseISO(selectedMsg.enviado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              )}
+              {selectedMsg.erro && (
+                <div className="bg-destructive/5 border border-destructive/20 p-3 rounded-lg">
+                  <p className="text-xs font-medium text-destructive mb-1">Erros:</p>
+                  <p className="text-xs text-destructive/80">{selectedMsg.erro}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ══ Templates Sheet ══ */}
       <Sheet open={isTemplateSheetOpen} onOpenChange={setIsTemplateSheetOpen}>

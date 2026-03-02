@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { MessageCircle, Send, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendWhatsAppMessage, getWhatsAppConfig } from '@/features/marketing/services/whatsappService';
@@ -30,6 +31,10 @@ export default function BulkMessageModal({ open, onOpenChange, recipients, event
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
+    const [cadencia, setCadencia] = useState(5);
+    const [cadenciaMode, setCadenciaMode] = useState<'fixo' | 'variavel'>('fixo');
+    const [cadenciaMin, setCadenciaMin] = useState(1);
+    const [cadenciaMax, setCadenciaMax] = useState(30);
 
     async function handleSend() {
         if (!message.trim()) {
@@ -75,8 +80,11 @@ export default function BulkMessageModal({ open, onOpenChange, recipients, event
                 }
 
                 setProgress(prev => ({ ...prev, current: prev.current + 1 }));
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Cadência: fixa ou aleatória entre min e max
+                const waitMs = cadenciaMode === 'variavel'
+                    ? Math.floor(Math.random() * (cadenciaMax - cadenciaMin + 1) * 1000) + cadenciaMin * 1000
+                    : cadencia * 1000;
+                await new Promise(resolve => setTimeout(resolve, waitMs));
             }
 
             // Update log status
@@ -138,6 +146,80 @@ export default function BulkMessageModal({ open, onOpenChange, recipients, event
                             rows={5}
                             disabled={sending}
                         />
+                    </div>
+
+                    {/* Cadência */}
+                    <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                            <Label className="font-medium">Cadência entre envios</Label>
+                            <div className="flex gap-1 bg-muted rounded-md p-0.5">
+                                <button type="button"
+                                    className={`px-2.5 py-1 text-xs rounded transition-colors ${cadenciaMode === 'fixo' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    onClick={() => setCadenciaMode('fixo')}
+                                    disabled={sending}
+                                >Fixo</button>
+                                <button type="button"
+                                    className={`px-2.5 py-1 text-xs rounded transition-colors ${cadenciaMode === 'variavel' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    onClick={() => setCadenciaMode('variavel')}
+                                    disabled={sending}
+                                >Variável</button>
+                            </div>
+                        </div>
+
+                        {cadenciaMode === 'fixo' ? (
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs text-muted-foreground w-6">1s</span>
+                                    <Slider
+                                        value={[cadencia]}
+                                        onValueChange={([v]) => setCadencia(v)}
+                                        min={1} max={60} step={1} className="flex-1"
+                                        disabled={sending}
+                                    />
+                                    <span className="text-xs text-muted-foreground w-8">60s</span>
+                                    <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{cadencia}s</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Intervalo fixo de <strong>{cadencia}s</strong> entre cada envio.
+                                    {recipients.length > 0 && (
+                                        <span> Tempo estimado: <strong>{Math.ceil(recipients.length * cadencia / 60)} min</strong></span>
+                                    )}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs text-muted-foreground w-12">Mínimo</span>
+                                        <Slider
+                                            value={[cadenciaMin]}
+                                            onValueChange={([v]) => setCadenciaMin(Math.min(v, cadenciaMax - 1))}
+                                            min={1} max={59} step={1} className="flex-1"
+                                            disabled={sending}
+                                        />
+                                        <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{cadenciaMin}s</Badge>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs text-muted-foreground w-12">Máximo</span>
+                                        <Slider
+                                            value={[cadenciaMax]}
+                                            onValueChange={([v]) => setCadenciaMax(Math.max(v, cadenciaMin + 1))}
+                                            min={2} max={60} step={1} className="flex-1"
+                                            disabled={sending}
+                                        />
+                                        <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{cadenciaMax}s</Badge>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Intervalo <strong>aleatório entre {cadenciaMin}s e {cadenciaMax}s</strong> para simular envio humano.
+                                    {recipients.length > 0 && (
+                                        <span> Tempo estimado: <strong>{Math.ceil(recipients.length * ((cadenciaMin + cadenciaMax) / 2) / 60)} min</strong></span>
+                                    )}
+                                </p>
+                            </>
+                        )}
                     </div>
 
                     {sending && (

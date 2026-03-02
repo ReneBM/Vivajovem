@@ -25,8 +25,8 @@ import Configuracoes from "@/features/configuracoes/pages/ConfiguracoesPage";
 import Aniversariantes from "@/features/jovens/pages/AniversariantesPage";
 import Usuarios from "@/features/usuarios/pages/UsuariosPage";
 import Marketing from "@/features/marketing/pages/MarketingPage";
+import WhatsappManager from "@/features/whatsapp/pages/EvolutionManagerPage";
 import Funcoes from "@/features/funcoes/pages/FuncoesPage";
-import EvolutionManager from "./pages/EvolutionManagerPage";
 import NotFound from "./pages/NotFound";
 
 // Layout
@@ -40,7 +40,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -64,11 +64,11 @@ const App = () => (
               <Route path="/aniversariantes" element={<RoleGuard requiredPermission="cadastro.jovens.visualizar"><Aniversariantes /></RoleGuard>} />
               <Route path="/usuarios" element={<RoleGuard requiredPermission="seguranca.usuarios.visualizar"><Usuarios /></RoleGuard>} />
               <Route path="/marketing" element={<RoleGuard requiredPermission="marketing.whatsapp.visualizar"><Marketing /></RoleGuard>} />
+              <Route path="/whatsapp" element={<RoleGuard allowedRoles={['ADMIN']}><WhatsappManager /></RoleGuard>} />
               <Route path="/funcoes" element={<RoleGuard requiredPermission="seguranca.funcoes.visualizar"><Funcoes /></RoleGuard>} />
             </Route>
 
             {/* Catch-all */}
-            <Route path="/Manager" element={<EvolutionManager />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
