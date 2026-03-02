@@ -59,6 +59,7 @@ export interface Campanha extends CampanhaRow {
         created_at: string;
         status_validacao?: 'pendente' | 'confirmado' | 'descartado';
         foto_url?: string | null;
+        dados?: any;
     }[];
 }
 
@@ -74,6 +75,7 @@ export interface InscricaoCampanha {
     created_at: string;
     validado_em?: string;
     validado_por?: string;
+    dados?: any;
 }
 
 export type RespostaRow = Database['public']['Tables']['inscricoes_evento_respostas']['Row'];

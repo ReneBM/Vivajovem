@@ -506,22 +506,54 @@ export default function Campanhas() {
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] mt-4 pr-4">
             <div className="space-y-4">
-              {selectedInscricaoDetails?.dados ? (
-                Object.entries(selectedInscricaoDetails.dados).map(([key, value]: [string, any]) => {
-                  // Pular campos vazios ou técnicos se necessário
-                  if (!value || key === 'id' || key === 'updated_at') return null;
-
-                  return (
-                    <div key={key} className="border-b border-border/50 pb-2">
-                      <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{key.replace(/_/g, ' ')}</Label>
-                      <p className="text-sm font-medium mt-0.5">{String(value)}</p>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground italic">
-                  Nenhum dado extra disponível para este cadastro.
+              {/* Foto do inscrito */}
+              {selectedInscricaoDetails?.foto_url && (
+                <div className="flex flex-col items-center gap-2 pb-4 border-b border-border/50">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-muted shadow-lg">
+                    <img
+                      src={selectedInscricaoDetails.foto_url}
+                      alt="Foto do inscrito"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
+              )}
+
+              {/* Dados básicos (sempre disponíveis) */}
+              <div className="border-b border-border/50 pb-2">
+                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nome</Label>
+                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.nome_visitante || '-'}</p>
+              </div>
+              <div className="border-b border-border/50 pb-2">
+                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Telefone</Label>
+                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.telefone || '-'}</p>
+              </div>
+              <div className="border-b border-border/50 pb-2">
+                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Status</Label>
+                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.status_validacao?.toUpperCase() || 'PENDENTE'}</p>
+              </div>
+              <div className="border-b border-border/50 pb-2">
+                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data do Cadastro</Label>
+                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.created_at ? format(parseISO(selectedInscricaoDetails.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}</p>
+              </div>
+
+              {/* Dados extras do formulário (se disponíveis) */}
+              {selectedInscricaoDetails?.dados && Object.keys(selectedInscricaoDetails.dados).length > 0 && (
+                <>
+                  <div className="pt-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Campos do Formulário</p>
+                  </div>
+                  {Object.entries(selectedInscricaoDetails.dados).map(([key, value]: [string, any]) => {
+                    if (value === undefined || value === null || value === '' || key === 'nome') return null;
+
+                    return (
+                      <div key={key} className="border-b border-border/50 pb-2">
+                        <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{key.replace(/_/g, ' ')}</Label>
+                        <p className="text-sm font-medium mt-0.5">{String(value)}</p>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </ScrollArea>
