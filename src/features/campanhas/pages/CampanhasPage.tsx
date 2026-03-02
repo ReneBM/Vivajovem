@@ -56,6 +56,9 @@ export default function Campanhas() {
   const [selectedCampanha, setSelectedCampanha] = useState<ExtendedCampanha | null>(null);
   const [isQRSheetOpen, setIsQRSheetOpen] = useState(false);
   const [isInscricoesSheetOpen, setIsInscricoesSheetOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [selectedInscricao, setSelectedInscricao] = useState<any | null>(null);
   const [validationFormData, setValidationFormData] = useState<any>({});
   const [deleteInscricaoId, setDeleteInscricaoId] = useState<string | null>(null);
 
