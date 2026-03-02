@@ -56,10 +56,8 @@ export default function Campanhas() {
   const [selectedCampanha, setSelectedCampanha] = useState<ExtendedCampanha | null>(null);
   const [isQRSheetOpen, setIsQRSheetOpen] = useState(false);
   const [isInscricoesSheetOpen, setIsInscricoesSheetOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [selectedInscricao, setSelectedInscricao] = useState<any | null>(null);
   const [validationFormData, setValidationFormData] = useState<any>({});
+  const [deleteInscricaoId, setDeleteInscricaoId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     nome: '', descricao: '', data_inicio: '', data_fim: '', slug: '',
@@ -139,6 +137,20 @@ export default function Campanhas() {
       await supabase.from('campanhas').update({ ativa: !ativa }).eq('id', id);
       toast.success(ativa ? 'Desativada' : 'Ativada'); fetchCampanhas();
     } catch { toast.error('Erro ao atualizar'); }
+  }
+
+  async function handleDeleteInscricao() {
+    if (!deleteInscricaoId) return;
+    try {
+      const { error } = await supabase.from('inscricoes_campanha').delete().eq('id', deleteInscricaoId);
+      if (error) throw error;
+      toast.success('Cadastro excluído com sucesso!');
+      fetchCampanhas();
+    } catch (err: any) {
+      toast.error('Erro ao excluir cadastro: ' + err.message);
+    } finally {
+      setDeleteInscricaoId(null);
+    }
   }
 
   function openQRSheet(c: Campanha) { setSelectedCampanha(c); setIsQRSheetOpen(true); }
@@ -350,6 +362,19 @@ export default function Campanhas() {
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle><AlertDialogDescription>Ação irreversível.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!deleteInscricaoId} onOpenChange={(o) => !o && setDeleteInscricaoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Cadastro</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja remover este cadastro? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteInscricao} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {loading ? <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div> :
         campanhas.length === 0 ? <Card className="glass-card py-12 text-center"><Megaphone className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" /><h3 className="font-semibold">Nenhuma campanha criada</h3></Card> :
           <div className="space-y-8">
@@ -386,9 +411,12 @@ export default function Campanhas() {
                       <Badge variant={i.status_validacao === 'confirmado' ? 'secondary' : 'outline'} className={`text-[10px] py-0 ${i.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20' : ''}`}>
                         {i.status_validacao?.toUpperCase() || 'PENDENTE'}
                       </Badge>
-                      {i.status_validacao !== 'confirmado' && (
-                        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => openValidationModal(i)}>Validar Cadastro</Button>
-                      )}
+                      <div className="flex gap-2">
+                        {i.status_validacao !== 'confirmado' && (
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => openValidationModal(i)}>Validar</Button>
+                        )}
+                        <Button variant="link" size="sm" className="h-auto p-0 text-xs text-destructive hover:text-destructive/80" onClick={() => setDeleteInscricaoId(i.id)}>Excluir</Button>
+                      </div>
                     </div>
                   </div>
                 ))
