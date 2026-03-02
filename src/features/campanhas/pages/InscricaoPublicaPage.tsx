@@ -164,25 +164,30 @@ export default function CadastroCampanha() {
       const commonPayload: any = {
         nome: formData.nome,
         telefone: formData.telefone || null,
-        updated_at: new Date().toISOString(),
       };
 
-      // Add table-specific fields
-      if (tipo === 'jovem' || tipo === 'lider') {
+      // Add table-specific fields based on actual table schema
+      if (tipo === 'jovem') {
         commonPayload.cpf = rawCPF;
         commonPayload.data_nascimento = formData.data_nascimento || null;
+        commonPayload.batizado = formData.batizado === 'Sim';
+        commonPayload.updated_at = new Date().toISOString();
+        if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
+        if (fotoUrl) commonPayload.foto_url = fotoUrl;
       }
 
-      if (tipo === 'jovem') {
-        commonPayload.batizado = formData.batizado === 'Sim';
-        if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
+      if (tipo === 'lider') {
+        // lideres table only has: nome, telefone, email, user_id, status, foto_url, titulo_eclesiastico
+        commonPayload.updated_at = new Date().toISOString();
+        if (formData.email) commonPayload.email = formData.email;
+        if (fotoUrl) commonPayload.foto_url = fotoUrl;
       }
 
       if (tipo === 'visitante') {
-        commonPayload.idade = null; // Can be parsed if field exists
+        // jovens_visitantes table has: nome, telefone, idade, email, observacao
+        commonPayload.updated_at = new Date().toISOString();
+        if (formData.email) commonPayload.email = formData.email;
       }
-
-      if (fotoUrl) commonPayload.foto_url = fotoUrl;
 
       if (existingRecord) {
         // UPDATE existing
@@ -192,13 +197,12 @@ export default function CadastroCampanha() {
         if (updateError) throw updateError;
       } else {
         // CREATE new
-        const insertPayload = {
-          ...commonPayload,
-          status: 'ATIVO' as const,
-        };
+        const insertPayload = { ...commonPayload };
 
-        // Visitors don't have 'status' column in current schema
-        if (tipo === 'visitante') delete (insertPayload as any).status;
+        // Only jovens and lideres have 'status' column
+        if (tipo === 'jovem' || tipo === 'lider') {
+          insertPayload.status = 'ATIVO';
+        }
 
         const { data: newRecord, error: createError } = await supabase
           .from(table as any)
@@ -210,22 +214,38 @@ export default function CadastroCampanha() {
         recordId = (newRecord as any).id;
       }
 
-      // 2. Register inscription with specific type column
+      // 2. Register inscription - use only columns guaranteed to exist
       const inscricaoPayload: any = {
         campanha_id: campanha.id,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
         foto_url: fotoUrl,
-        dados: formData // Save all form data for detailed view
+        jovem_id: tipo === 'jovem' ? recordId : null,
       };
 
-      if (tipo === 'jovem') inscricaoPayload.jovem_id = recordId;
-      else if (tipo === 'visitante') (inscricaoPayload as any).visitante_id = recordId;
-      else if (tipo === 'lider') (inscricaoPayload as any).lider_id = recordId;
+      // Try to include optional columns (may not exist if scripts weren't run)
+      try {
+        inscricaoPayload.dados = formData;
+        if (tipo === 'visitante') inscricaoPayload.visitante_id = recordId;
+        if (tipo === 'lider') inscricaoPayload.lider_id = recordId;
+      } catch { /* optional columns */ }
 
       const { error: inscricaoError } = await supabase.from('inscricoes_campanha').insert(inscricaoPayload);
 
-      if (inscricaoError) throw inscricaoError;
+      // If insert fails due to unknown column, retry without optional fields
+      if (inscricaoError && inscricaoError.message?.includes('column')) {
+        const fallbackPayload: any = {
+          campanha_id: campanha.id,
+          nome_visitante: formData.nome,
+          telefone: formData.telefone || null,
+          foto_url: fotoUrl,
+          jovem_id: recordId,
+        };
+        const { error: fallbackError } = await supabase.from('inscricoes_campanha').insert(fallbackPayload);
+        if (fallbackError) throw fallbackError;
+      } else if (inscricaoError) {
+        throw inscricaoError;
+      }
 
       setIsUpdate(wasUpdated);
       setSubmitted(true);
