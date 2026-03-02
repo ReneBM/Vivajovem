@@ -60,11 +60,11 @@ const App = () => (
               <Route path="/eventos" element={<RoleGuard requiredPermission="eventos.eventos.visualizar"><Eventos /></RoleGuard>} />
               <Route path="/campanhas" element={<RoleGuard requiredPermission="marketing.campanhas.visualizar"><Campanhas /></RoleGuard>} />
               <Route path="/relatorios" element={<RoleGuard requiredPermission="relatorios.relatorios.visualizar"><Relatorios /></RoleGuard>} />
-              <Route path="/configuracoes" element={<RoleGuard allowedRoles={['ADMIN']}><Configuracoes /></RoleGuard>} />
+              <Route path="/configuracoes" element={<RoleGuard requiredPermission="seguranca.configuracoes.visualizar"><Configuracoes /></RoleGuard>} />
               <Route path="/aniversariantes" element={<RoleGuard requiredPermission="cadastro.jovens.visualizar"><Aniversariantes /></RoleGuard>} />
               <Route path="/usuarios" element={<RoleGuard requiredPermission="seguranca.usuarios.visualizar"><Usuarios /></RoleGuard>} />
               <Route path="/marketing" element={<RoleGuard requiredPermission="marketing.whatsapp.visualizar"><Marketing /></RoleGuard>} />
-              <Route path="/whatsapp" element={<RoleGuard allowedRoles={['ADMIN']}><WhatsappManager /></RoleGuard>} />
+              <Route path="/whatsapp" element={<RoleGuard requiredPermission="marketing.instancias.visualizar"><WhatsappManager /></RoleGuard>} />
               <Route path="/funcoes" element={<RoleGuard requiredPermission="seguranca.funcoes.visualizar"><Funcoes /></RoleGuard>} />
             </Route>
 

@@ -81,6 +81,14 @@ export const PERMISSION_MODULES: PermissionModule[] = [
         key: 'whatsapp', label: 'WhatsApp', actions: [
           { key: 'visualizar', label: 'Visualizar' },
           { key: 'enviar', label: 'Enviar' },
+          { key: 'agendar', label: 'Agendar' },
+          { key: 'templates', label: 'Gerenciar Templates' },
+        ]
+      },
+      {
+        key: 'instancias', label: 'Gestão de Instâncias', actions: [
+          { key: 'visualizar', label: 'Visualizar' },
+          { key: 'gerenciar', label: 'Gerenciar (Criar/Excluir)' },
         ]
       },
     ],
@@ -104,7 +112,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'usuarios', label: 'Usuários', actions: [...ACTIONS_CRUD] },
       { key: 'funcoes', label: 'Funções', actions: [...ACTIONS_CRUD] },
       {
-        key: 'configuracoes', label: 'Configurações', actions: [
+        key: 'configuracoes', label: 'Configurações / APIs', actions: [
           { key: 'visualizar', label: 'Visualizar' },
           { key: 'editar', label: 'Editar' },
         ]

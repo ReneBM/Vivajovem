@@ -32,6 +32,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { sendBulkMessages, getWhatsAppConfig } from '../services/whatsappService';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ── Types ──
 interface Destinatario {
@@ -64,6 +65,7 @@ interface Template {
 // ── Component ──
 export default function Marketing() {
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -269,7 +271,7 @@ export default function Marketing() {
         .select('nome')
         .eq('id', msg.created_by)
         .single();
-      setSenderName(userData?.nome || 'Usuário desconhecido');
+      setSenderName((userData as any)?.nome || 'Usuário desconhecido');
     } else {
       setSenderName('Sistema');
     }
@@ -350,184 +352,190 @@ export default function Marketing() {
           <p className="text-muted-foreground mt-1">Envie mensagens para jovens e líderes</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsTemplateSheetOpen(true)}>
-            <FileText className="w-4 h-4 mr-1" />Templates
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="hero"><Plus className="w-4 h-4" />Nova Mensagem</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-display">Nova Mensagem WhatsApp</DialogTitle>
-                <DialogDescription>Crie e envie uma mensagem</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo de envio</Label>
-                    <Select value={formData.tipo} onValueChange={v => setFormData({ ...formData, tipo: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="manual"><div className="flex items-center gap-2"><Send className="w-4 h-4" />Envio Imediato</div></SelectItem>
-                        <SelectItem value="agendada"><div className="flex items-center gap-2"><Clock className="w-4 h-4" />Agendado</div></SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {formData.tipo === 'agendada' && (
+          {hasPermission('marketing.whatsapp.templates') && (
+            <Button variant="outline" onClick={() => setIsTemplateSheetOpen(true)}>
+              <FileText className="w-4 h-4 mr-1" />Templates
+            </Button>
+          )}
+          {hasPermission('marketing.whatsapp.enviar') && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="hero"><Plus className="w-4 h-4" />Nova Mensagem</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-display">Nova Mensagem WhatsApp</DialogTitle>
+                  <DialogDescription>Crie e envie uma mensagem</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Data e hora</Label>
-                      <Input type="datetime-local" value={formData.agendado_para}
-                        onChange={e => setFormData({ ...formData, agendado_para: e.target.value })}
-                        required />
+                      <Label>Tipo de envio</Label>
+                      <Select value={formData.tipo} onValueChange={v => setFormData({ ...formData, tipo: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual"><div className="flex items-center gap-2"><Send className="w-4 h-4" />Envio Imediato</div></SelectItem>
+                          {hasPermission('marketing.whatsapp.agendar') && (
+                            <SelectItem value="agendada"><div className="flex items-center gap-2"><Clock className="w-4 h-4" />Agendado</div></SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </div>
-
-                {/* Cadência */}
-                <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-medium">Cadência entre envios</Label>
-                    <div className="flex gap-1 bg-muted rounded-md p-0.5">
-                      <button type="button"
-                        className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'fixo' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        onClick={() => setFormData({ ...formData, cadenciaMode: 'fixo' })}
-                      >Fixo</button>
-                      <button type="button"
-                        className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'variavel' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        onClick={() => setFormData({ ...formData, cadenciaMode: 'variavel' })}
-                      >Variável</button>
-                    </div>
-                  </div>
-
-                  {formData.cadenciaMode === 'fixo' ? (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground w-6">1s</span>
-                        <Slider
-                          value={[formData.cadencia]}
-                          onValueChange={([v]) => setFormData({ ...formData, cadencia: v })}
-                          min={1} max={60} step={1} className="flex-1"
-                        />
-                        <span className="text-xs text-muted-foreground w-8">60s</span>
-                        <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadencia}s</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Intervalo fixo de <strong>{formData.cadencia}s</strong> entre cada envio.
-                        {formData.selectedIds.length > 0 && (
-                          <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * formData.cadencia / 60)} min</strong></span>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <>
+                    {formData.tipo === 'agendada' && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground w-12">Mínimo</span>
-                          <Slider
-                            value={[formData.cadenciaMin]}
-                            onValueChange={([v]) => setFormData({ ...formData, cadenciaMin: Math.min(v, formData.cadenciaMax - 1) })}
-                            min={1} max={59} step={1} className="flex-1"
-                          />
-                          <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMin}s</Badge>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground w-12">Máximo</span>
-                          <Slider
-                            value={[formData.cadenciaMax]}
-                            onValueChange={([v]) => setFormData({ ...formData, cadenciaMax: Math.max(v, formData.cadenciaMin + 1) })}
-                            min={2} max={60} step={1} className="flex-1"
-                          />
-                          <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMax}s</Badge>
-                        </div>
+                        <Label>Data e hora</Label>
+                        <Input type="datetime-local" value={formData.agendado_para}
+                          onChange={e => setFormData({ ...formData, agendado_para: e.target.value })}
+                          required />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Intervalo <strong>aleatório entre {formData.cadenciaMin}s e {formData.cadenciaMax}s</strong> para simular envio humano.
-                        {formData.selectedIds.length > 0 && (
-                          <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * ((formData.cadenciaMin + formData.cadenciaMax) / 2) / 60)} min</strong></span>
-                        )}
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {/* Message with template selector */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Mensagem *</Label>
-                    {templates.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="ghost" size="sm"><FileText className="w-3.5 h-3.5 mr-1" />Usar template</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64">
-                          {templates.map(t => (
-                            <DropdownMenuItem key={t.id} onClick={() => useTemplate(t)}>
-                              <div className="truncate">
-                                <span className="font-medium">{t.nome}</span>
-                                <p className="text-xs text-muted-foreground truncate">{t.mensagem.slice(0, 50)}...</p>
-                              </div>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     )}
                   </div>
-                  <Textarea value={formData.mensagem}
-                    onChange={e => setFormData({ ...formData, mensagem: e.target.value })}
-                    placeholder="Digite a mensagem... Use {nome} para personalizar"
-                    rows={4} required />
-                  <p className="text-xs text-muted-foreground">Use <code>{'{nome}'}</code> para incluir o nome do destinatário</p>
-                </div>
 
-                {/* Recipients */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Destinatários ({formData.selectedIds.length})</Label>
-                    <div className="flex gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={selectAll}>Todos</Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={deselectAll}>Limpar</Button>
+                  {/* Cadência */}
+                  <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium">Cadência entre envios</Label>
+                      <div className="flex gap-1 bg-muted rounded-md p-0.5">
+                        <button type="button"
+                          className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'fixo' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          onClick={() => setFormData({ ...formData, cadenciaMode: 'fixo' })}
+                        >Fixo</button>
+                        <button type="button"
+                          className={`px-2.5 py-1 text-xs rounded transition-colors ${formData.cadenciaMode === 'variavel' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          onClick={() => setFormData({ ...formData, cadenciaMode: 'variavel' })}
+                        >Variável</button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Buscar..." value={searchDest} onChange={e => setSearchDest(e.target.value)} className="pl-10" />
-                  </div>
-                  <ScrollArea className="h-48 border rounded-lg p-2">
-                    {filteredDest.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">Nenhum contato com telefone</p>
-                    ) : filteredDest.map(d => {
-                      const isSelected = formData.selectedIds.includes(d.id);
-                      return (
-                        <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => toggleDest(d.id)}>
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
-                            }`}>
-                            {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{d.nome}</p>
-                            <p className="text-xs text-muted-foreground">{d.telefone}</p>
-                          </div>
-                          <Badge variant="outline" className={`text-[10px] ${d.tipo === 'lider' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'}`}>
-                            {d.tipo === 'lider' ? 'Líder' : 'Jovem'}
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </ScrollArea>
-                </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                  <Button type="submit" variant="hero" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : formData.tipo === 'agendada' ? 'Agendar' : 'Enviar'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                    {formData.cadenciaMode === 'fixo' ? (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-6">1s</span>
+                          <Slider
+                            value={[formData.cadencia]}
+                            onValueChange={([v]) => setFormData({ ...formData, cadencia: v })}
+                            min={1} max={60} step={1} className="flex-1"
+                          />
+                          <span className="text-xs text-muted-foreground w-8">60s</span>
+                          <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadencia}s</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Intervalo fixo de <strong>{formData.cadencia}s</strong> entre cada envio.
+                          {formData.selectedIds.length > 0 && (
+                            <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * formData.cadencia / 60)} min</strong></span>
+                          )}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground w-12">Mínimo</span>
+                            <Slider
+                              value={[formData.cadenciaMin]}
+                              onValueChange={([v]) => setFormData({ ...formData, cadenciaMin: Math.min(v, formData.cadenciaMax - 1) })}
+                              min={1} max={59} step={1} className="flex-1"
+                            />
+                            <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMin}s</Badge>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground w-12">Máximo</span>
+                            <Slider
+                              value={[formData.cadenciaMax]}
+                              onValueChange={([v]) => setFormData({ ...formData, cadenciaMax: Math.max(v, formData.cadenciaMin + 1) })}
+                              min={2} max={60} step={1} className="flex-1"
+                            />
+                            <Badge variant="outline" className="font-mono min-w-[3rem] justify-center">{formData.cadenciaMax}s</Badge>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Intervalo <strong>aleatório entre {formData.cadenciaMin}s e {formData.cadenciaMax}s</strong> para simular envio humano.
+                          {formData.selectedIds.length > 0 && (
+                            <span> Tempo estimado: <strong>{Math.ceil(formData.selectedIds.length * ((formData.cadenciaMin + formData.cadenciaMax) / 2) / 60)} min</strong></span>
+                          )}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Message with template selector */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Mensagem *</Label>
+                      {templates.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="sm"><FileText className="w-3.5 h-3.5 mr-1" />Usar template</Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-64">
+                            {templates.map(t => (
+                              <DropdownMenuItem key={t.id} onClick={() => useTemplate(t)}>
+                                <div className="truncate">
+                                  <span className="font-medium">{t.nome}</span>
+                                  <p className="text-xs text-muted-foreground truncate">{t.mensagem.slice(0, 50)}...</p>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                    <Textarea value={formData.mensagem}
+                      onChange={e => setFormData({ ...formData, mensagem: e.target.value })}
+                      placeholder="Digite a mensagem... Use {nome} para personalizar"
+                      rows={4} required />
+                    <p className="text-xs text-muted-foreground">Use <code>{'{nome}'}</code> para incluir o nome do destinatário</p>
+                  </div>
+
+                  {/* Recipients */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Destinatários ({formData.selectedIds.length})</Label>
+                      <div className="flex gap-1">
+                        <Button type="button" variant="ghost" size="sm" onClick={selectAll}>Todos</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={deselectAll}>Limpar</Button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input placeholder="Buscar..." value={searchDest} onChange={e => setSearchDest(e.target.value)} className="pl-10" />
+                    </div>
+                    <ScrollArea className="h-48 border rounded-lg p-2">
+                      {filteredDest.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">Nenhum contato com telefone</p>
+                      ) : filteredDest.map(d => {
+                        const isSelected = formData.selectedIds.includes(d.id);
+                        return (
+                          <div key={d.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => toggleDest(d.id)}>
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                              }`}>
+                              {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{d.nome}</p>
+                              <p className="text-xs text-muted-foreground">{d.telefone}</p>
+                            </div>
+                            <Badge variant="outline" className={`text-[10px] ${d.tipo === 'lider' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'}`}>
+                              {d.tipo === 'lider' ? 'Líder' : 'Jovem'}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </ScrollArea>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                    <Button type="submit" variant="hero" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : formData.tipo === 'agendada' ? 'Agendar' : 'Enviar'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -635,7 +643,7 @@ export default function Marketing() {
                           </div>
                           <div className="flex items-center gap-2">
                             {getStatusBadge(msg.status)}
-                            {msg.status === 'falha' && apiConfigured && (
+                            {msg.status === 'falha' && apiConfigured && hasPermission('marketing.whatsapp.enviar') && (
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); retrySend(msg); }} title="Reenviar">
                                 <RefreshCw className="w-4 h-4" />
                               </Button>
@@ -657,24 +665,28 @@ export default function Marketing() {
                         {/* Botões de ação para agendadas */}
                         {msg.tipo === 'agendada' && msg.status === 'pendente' && (
                           <div className="flex gap-2 mt-3 pt-2 border-t">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={(e) => { e.stopPropagation(); sendScheduledNow(msg); }}
-                            >
-                              <Play className="w-3 h-3 mr-1" /> Enviar Agora
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs text-destructive hover:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); cancelScheduled(msg); }}
-                            >
-                              <Ban className="w-3 h-3 mr-1" /> Cancelar
-                            </Button>
+                            {hasPermission('marketing.whatsapp.enviar') && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={(e) => { e.stopPropagation(); sendScheduledNow(msg); }}
+                              >
+                                <Play className="w-3 h-3 mr-1" /> Enviar Agora
+                              </Button>
+                            )}
+                            {hasPermission('marketing.whatsapp.agendar') && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs text-destructive hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); cancelScheduled(msg); }}
+                              >
+                                <Ban className="w-3 h-3 mr-1" /> Cancelar
+                              </Button>
+                            )}
                           </div>
                         )}
                       </CardContent>

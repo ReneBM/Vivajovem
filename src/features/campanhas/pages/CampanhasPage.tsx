@@ -29,24 +29,18 @@ import {
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { QRCodeSVG } from 'qrcode.react';
+import { Switch } from '@/components/ui/switch';
 import { CampaignFieldsConfig, DEFAULT_FIELDS, FieldConfig } from '@/features/campanhas/components/CampaignFieldsConfig';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Campanha, InscricaoCampanha } from '@/types/app-types';
 
-interface Campanha {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  data_inicio: string;
-  data_fim: string | null;
-  ativa: boolean;
-  created_at: string;
-  slug: string | null;
-  cor_primaria: string | null;
-  cor_fundo: string | null;
-  imagem_capa_url: string | null;
-  campos_personalizados: unknown;
-  inscricoes_campanha?: { id: string; nome_visitante: string; telefone: string | null; idade: number | null; created_at: string }[];
+// Local UI interface extensions if needed
+interface ExtendedCampanha extends Omit<Campanha, 'inscricoes_campanha'> {
+  inscricoes_campanha?: any[];
 }
 
 function generateSlug(title: string): string {
@@ -54,19 +48,25 @@ function generateSlug(title: string): string {
 }
 
 export default function Campanhas() {
-  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
+  const [campanhas, setCampanhas] = useState<ExtendedCampanha[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingCampanha, setEditingCampanha] = useState<Campanha | null>(null);
-  const [selectedCampanha, setSelectedCampanha] = useState<Campanha | null>(null);
+  const [editingCampanha, setEditingCampanha] = useState<ExtendedCampanha | null>(null);
+  const [selectedCampanha, setSelectedCampanha] = useState<ExtendedCampanha | null>(null);
   const [isQRSheetOpen, setIsQRSheetOpen] = useState(false);
   const [isInscricoesSheetOpen, setIsInscricoesSheetOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [selectedInscricao, setSelectedInscricao] = useState<any | null>(null);
+  const [validationFormData, setValidationFormData] = useState<any>({});
 
   const [formData, setFormData] = useState({
     nome: '', descricao: '', data_inicio: '', data_fim: '', slug: '',
     cor_primaria: '#D4A84B', cor_fundo: '#0a0a12', imagem_capa_url: '',
+    tipo_cadastro: 'visitante' as 'jovem' | 'visitante' | 'lider',
+    objetivo_cadastro: 'criacao' as 'criacao' | 'atualizacao',
+    solicitar_foto: false,
   });
 
   const [formFields, setFormFields] = useState<FieldConfig[]>(DEFAULT_FIELDS);
@@ -75,14 +75,14 @@ export default function Campanhas() {
 
   async function fetchCampanhas() {
     try {
-      const { data, error } = await supabase.from('campanhas').select('*, inscricoes_campanha(id, nome_visitante, telefone, idade, created_at)').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('campanhas').select('*, inscricoes_campanha(*)').order('created_at', { ascending: false });
       if (error) throw error;
-      setCampanhas((data as Campanha[]) || []);
+      setCampanhas((data as any[]) || []);
     } catch { toast.error('Erro ao carregar campanhas'); } finally { setLoading(false); }
   }
 
   function resetForm() {
-    setFormData({ nome: '', descricao: '', data_inicio: '', data_fim: '', slug: '', cor_primaria: '#D4A84B', cor_fundo: '#0a0a12', imagem_capa_url: '' });
+    setFormData({ nome: '', descricao: '', data_inicio: '', data_fim: '', slug: '', cor_primaria: '#D4A84B', cor_fundo: '#0a0a12', imagem_capa_url: '', tipo_cadastro: 'visitante', objetivo_cadastro: 'criacao', solicitar_foto: false });
     setFormFields(DEFAULT_FIELDS);
     setEditingCampanha(null);
   }
@@ -92,8 +92,11 @@ export default function Campanhas() {
     setFormData({
       nome: campanha.nome, descricao: campanha.descricao || '', data_inicio: campanha.data_inicio, data_fim: campanha.data_fim || '',
       slug: campanha.slug || '', cor_primaria: campanha.cor_primaria || '#D4A84B', cor_fundo: campanha.cor_fundo || '#0a0a12', imagem_capa_url: campanha.imagem_capa_url || '',
+      tipo_cadastro: campanha.tipo_cadastro || 'visitante',
+      objetivo_cadastro: (campanha as any).objetivo_cadastro || 'criacao',
+      solicitar_foto: (campanha as any).solicitar_foto || false
     });
-    const existing = Array.isArray(campanha.campos_personalizados) ? campanha.campos_personalizados as FieldConfig[] : DEFAULT_FIELDS;
+    const existing = Array.isArray(campanha.campos_personalizados) ? campanha.campos_personalizados as unknown as FieldConfig[] : DEFAULT_FIELDS;
     setFormFields(existing.length > 0 ? existing : DEFAULT_FIELDS);
     setIsDialogOpen(true);
   }
@@ -107,6 +110,9 @@ export default function Campanhas() {
         nome: formData.nome, descricao: formData.descricao || null, data_inicio: formData.data_inicio, data_fim: formData.data_fim || null,
         slug, cor_primaria: formData.cor_primaria, cor_fundo: formData.cor_fundo, imagem_capa_url: formData.imagem_capa_url || null,
         campos_personalizados: JSON.parse(JSON.stringify(formFields)),
+        tipo_cadastro: formData.tipo_cadastro,
+        objetivo_cadastro: formData.objetivo_cadastro,
+        solicitar_foto: formData.solicitar_foto
       };
 
       if (editingCampanha) {
@@ -137,6 +143,58 @@ export default function Campanhas() {
 
   function openQRSheet(c: Campanha) { setSelectedCampanha(c); setIsQRSheetOpen(true); }
   function openInscricoes(c: Campanha) { setSelectedCampanha(c); setIsInscricoesSheetOpen(true); }
+
+  function openValidationModal(inscricao: any) {
+    setSelectedInscricao(inscricao);
+    setValidationFormData({
+      nome: inscricao.nome_visitante,
+      telefone: inscricao.telefone || '',
+      idade: inscricao.idade || '',
+      tipo: selectedCampanha?.tipo_cadastro || 'visitante'
+    });
+    setIsValidating(true);
+  }
+
+  async function handleConfirmValidation(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedInscricao || !selectedCampanha) return;
+
+    setIsSubmitting(true);
+    try {
+      const tipo = selectedCampanha.tipo_cadastro || 'visitante';
+      const table = tipo === 'jovem' ? 'jovens' : tipo === 'lider' ? 'lideres' : 'jovens_visitantes';
+
+      const payload: any = {
+        nome: validationFormData.nome,
+        telefone: validationFormData.telefone,
+      };
+
+      if (tipo === 'visitante') payload.idade = validationFormData.idade;
+      if (tipo === 'jovem') payload.data_nascimento = validationFormData.data_nascimento;
+      if (selectedInscricao.foto_url) payload.foto_url = selectedInscricao.foto_url;
+
+      // 1. Criar registro oficial
+      const { error: insertError } = await supabase.from(table).insert(payload as any);
+      if (insertError) throw insertError;
+
+      // 2. Marcar cadastro como confirmado
+      const { error: updateError } = await supabase
+        .from('inscricoes_campanha')
+        .update({ status_validacao: 'confirmado', validado_em: new Date().toISOString() } as any)
+        .eq('id', selectedInscricao.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Cadastro confirmado com sucesso!');
+      setIsValidating(false);
+      fetchCampanhas();
+    } catch (err: any) {
+      toast.error('Erro ao validar: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   const getUrl = (slug: string) => `${window.location.origin}/campanha/${slug}`;
   const copyLink = (slug: string) => { navigator.clipboard.writeText(getUrl(slug)); toast.success('Link copiado!'); };
 
@@ -171,7 +229,7 @@ export default function Campanhas() {
                   <DropdownMenuItem onClick={() => window.open(getUrl(c.slug!), '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Ver Página</DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem onClick={() => openInscricoes(c)}><Eye className="w-4 h-4 mr-2" />Inscrições</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openInscricoes(c)}><Eye className="w-4 h-4 mr-2" />Cadastros</DropdownMenuItem>
               <DropdownMenuItem onClick={() => openEditDialog(c)}><Edit className="w-4 h-4 mr-2" />Editar</DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleAtiva(c.id, c.ativa)}>{active ? 'Pausar' : 'Reativar'}</DropdownMenuItem>
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(c.id)}><Trash2 className="w-4 h-4 mr-2" />Excluir</DropdownMenuItem>
@@ -206,7 +264,7 @@ export default function Campanhas() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Campanhas</h1>
-          <p className="text-muted-foreground mt-1">Gerencie campanhas e inscrições</p>
+          <p className="text-muted-foreground mt-1">Gerencie campanhas e cadastros</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(o) => { setIsDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button variant="hero"><Plus className="w-4 h-4" />Nova Campanha</Button></DialogTrigger>
@@ -229,7 +287,42 @@ export default function Campanhas() {
                     <div className="space-y-2"><Label>Fim</Label><Input type="date" value={formData.data_fim} onChange={e => setFormData({ ...formData, data_fim: e.target.value })} /></div>
                   </div>
                   <div className="space-y-2"><Label>Descrição</Label><Textarea value={formData.descricao} onChange={e => setFormData({ ...formData, descricao: e.target.value })} rows={3} /></div>
-                  <div className="space-y-2"><Label>Capa URL</Label><Input value={formData.imagem_capa_url} onChange={e => setFormData({ ...formData, imagem_capa_url: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de Cadastro</Label>
+                      <Select value={formData.tipo_cadastro} onValueChange={(v: any) => setFormData({ ...formData, tipo_cadastro: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="jovem">Jovens</SelectItem>
+                          <SelectItem value="visitante">Visitantes</SelectItem>
+                          <SelectItem value="lider">Líderes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Objetivo</Label>
+                      <Select value={formData.objetivo_cadastro} onValueChange={(v: any) => setFormData({ ...formData, objetivo_cadastro: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="criacao">Criação de Cadastro</SelectItem>
+                          <SelectItem value="atualizacao">Atualização de Cadastro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-muted/5">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Solicitar Foto</Label>
+                      <p className="text-xs text-muted-foreground">Exige que o inscrito envie uma foto</p>
+                    </div>
+                    <Switch
+                      checked={formData.solicitar_foto}
+                      onCheckedChange={(v) => setFormData({ ...formData, solicitar_foto: v })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Capa URL</Label><Input value={formData.imagem_capa_url} onChange={e => setFormData({ ...formData, imagem_capa_url: e.target.value })} /></div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Cor Tema</Label><div className="flex gap-2"><Input type="color" value={formData.cor_primaria} onChange={e => setFormData({ ...formData, cor_primaria: e.target.value })} className="w-12 h-10 p-1" /><Input value={formData.cor_primaria} onChange={e => setFormData({ ...formData, cor_primaria: e.target.value })} /></div></div>
                     <div className="space-y-2"><Label>Cor Fundo</Label><div className="flex gap-2"><Input type="color" value={formData.cor_fundo} onChange={e => setFormData({ ...formData, cor_fundo: e.target.value })} className="w-12 h-10 p-1" /><Input value={formData.cor_fundo} onChange={e => setFormData({ ...formData, cor_fundo: e.target.value })} /></div></div>
@@ -250,7 +343,7 @@ export default function Campanhas() {
         <Card className="glass-card"><CardContent className="pt-4 pb-3"><div className="flex justify-between"><p className="text-sm text-muted-foreground">Total</p><Megaphone className="w-4 h-4 text-muted-foreground" /></div><p className="text-2xl font-bold mt-1">{campanhas.length}</p></CardContent></Card>
         <Card className="glass-card"><CardContent className="pt-4 pb-3"><div className="flex justify-between"><p className="text-sm text-muted-foreground">Ativas</p><CheckCircle className="w-4 h-4 text-success" /></div><p className="text-2xl font-bold mt-1 text-success">{activeCampanhas.length}</p></CardContent></Card>
         <Card className="glass-card"><CardContent className="pt-4 pb-3"><div className="flex justify-between"><p className="text-sm text-muted-foreground">Encerradas</p><XCircle className="w-4 h-4 text-muted-foreground" /></div><p className="text-2xl font-bold mt-1 text-muted-foreground">{inactiveCampanhas.length}</p></CardContent></Card>
-        <Card className="glass-card"><CardContent className="pt-4 pb-3"><div className="flex justify-between"><p className="text-sm text-muted-foreground">Inscritos</p><UserPlus className="w-4 h-4 text-primary" /></div><p className="text-2xl font-bold mt-1 text-primary">{totalInscritos}</p></CardContent></Card>
+        <Card className="glass-card"><CardContent className="pt-4 pb-3"><div className="flex justify-between"><p className="text-sm text-muted-foreground">Cadastros</p><UserPlus className="w-4 h-4 text-primary" /></div><p className="text-2xl font-bold mt-1 text-primary">{totalInscritos}</p></CardContent></Card>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
@@ -281,14 +374,22 @@ export default function Campanhas() {
       <Sheet open={isInscricoesSheetOpen} onOpenChange={setIsInscricoesSheetOpen}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           {selectedCampanha && <>
-            <SheetHeader><SheetTitle>Inscrições</SheetTitle><SheetDescription>{selectedCampanha.inscricoes_campanha?.length || 0} total</SheetDescription></SheetHeader>
+            <SheetHeader><SheetTitle>Cadastros</SheetTitle><SheetDescription>{selectedCampanha.inscricoes_campanha?.length || 0} total</SheetDescription></SheetHeader>
             <div className="mt-6 space-y-3">
-              {(selectedCampanha.inscricoes_campanha || []).length === 0 ? <p className="text-center text-muted-foreground py-8">Sem inscrições</p> :
+              {(selectedCampanha.inscricoes_campanha || []).length === 0 ? <p className="text-center text-muted-foreground py-8">Sem cadastros</p> :
                 selectedCampanha.inscricoes_campanha?.map(i => (
                   <div key={i.id} className="flex gap-3 p-3 rounded-lg border bg-muted/30 items-center">
                     <div className="p-2 rounded-full bg-primary/10"><UserPlus className="w-4 h-4 text-primary" /></div>
                     <div className="flex-1"><p className="font-medium text-sm">{i.nome_visitante}</p><p className="text-xs text-muted-foreground">{i.telefone || '-'}</p></div>
-                    <span className="text-xs text-muted-foreground">{format(parseISO(i.created_at), 'dd/MM/yy', { locale: ptBR })}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-xs text-muted-foreground">{format(parseISO(i.created_at), 'dd/MM/yy', { locale: ptBR })}</span>
+                      <Badge variant={i.status_validacao === 'confirmado' ? 'secondary' : 'outline'} className={`text-[10px] py-0 ${i.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20' : ''}`}>
+                        {i.status_validacao?.toUpperCase() || 'PENDENTE'}
+                      </Badge>
+                      {i.status_validacao !== 'confirmado' && (
+                        <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => openValidationModal(i)}>Validar Cadastro</Button>
+                      )}
+                    </div>
                   </div>
                 ))
               }
@@ -296,6 +397,59 @@ export default function Campanhas() {
           </>}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isValidating} onOpenChange={setIsValidating}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Cadastro</DialogTitle>
+            <DialogDescription>Valide os dados para oficializar o registro como {validationFormData.tipo}.</DialogDescription>
+          </DialogHeader>
+          {selectedInscricao?.foto_url && (
+            <div className="flex flex-col items-center gap-2 mt-4">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-muted shadow-lg">
+                <img
+                  src={selectedInscricao.foto_url}
+                  alt="Foto do inscrito"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Foto enviada</p>
+            </div>
+          )}
+          <form onSubmit={handleConfirmValidation} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome Completo</Label>
+              <Input value={validationFormData.nome} onChange={e => setValidationFormData({ ...validationFormData, nome: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone (WhatsApp)</Label>
+              <Input value={validationFormData.telefone} onChange={e => setValidationFormData({ ...validationFormData, telefone: e.target.value })} required />
+            </div>
+
+            {validationFormData.tipo === 'visitante' && (
+              <div className="space-y-2">
+                <Label>Idade</Label>
+                <Input type="number" value={validationFormData.idade} onChange={e => setValidationFormData({ ...validationFormData, idade: e.target.value })} />
+              </div>
+            )}
+
+            {validationFormData.tipo === 'jovem' && (
+              <div className="space-y-2">
+                <Label>Data de Nascimento</Label>
+                <Input type="date" value={validationFormData.data_nascimento} onChange={e => setValidationFormData({ ...validationFormData, data_nascimento: e.target.value })} />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsValidating(false)}>Cancelar</Button>
+              <Button type="submit" variant="hero" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                Confirmar e Criar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

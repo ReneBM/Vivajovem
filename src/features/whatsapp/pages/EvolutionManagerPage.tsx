@@ -19,12 +19,14 @@ import { WhatsAppInstance } from '../types/whatsapp.types';
 import ConnectionModal from '../components/ConnectionModal';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function EvolutionManagerPage() {
     const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
     const [loading, setLoading] = useState(true);
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
     const [config, setConfig] = useState<{ apiUrl: string; apiKey: string } | null>(null);
+    const { hasPermission } = usePermissions();
 
     const repository = new WhatsAppRepository();
 
@@ -99,9 +101,11 @@ export default function EvolutionManagerPage() {
                     <h1 className="text-3xl font-display font-bold text-foreground">Gestor de WhatsApp</h1>
                     <p className="text-muted-foreground mt-1">Conecte e gerencie suas instâncias da Evolution API.</p>
                 </div>
-                <Button onClick={() => setIsConnectModalOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
-                    <Plus className="w-4 h-4" /> Nova Conexão
-                </Button>
+                {hasPermission('marketing.instancias.gerenciar') && (
+                    <Button onClick={() => setIsConnectModalOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
+                        <Plus className="w-4 h-4" /> Nova Conexão
+                    </Button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -178,14 +182,16 @@ export default function EvolutionManagerPage() {
                 )}
             </div>
 
-            {config && (
-                <ConnectionModal
-                    open={isConnectModalOpen}
-                    onOpenChange={setIsConnectModalOpen}
-                    onSuccess={fetchData}
-                    config={config}
-                />
-            )}
-        </div>
+            {
+                config && (
+                    <ConnectionModal
+                        open={isConnectModalOpen}
+                        onOpenChange={setIsConnectModalOpen}
+                        onSuccess={fetchData}
+                        config={config}
+                    />
+                )
+            }
+        </div >
     );
 }

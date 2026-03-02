@@ -176,9 +176,10 @@ export default function JovensVisitantes() {
     setIsDialogOpen(true);
   }
 
-  const filteredVisitantes = visitantes.filter((v) =>
-    v.nome.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVisitantes = visitantes.filter((v) => {
+    const nome = v.nome || '';
+    return nome.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   function formatDate(dateStr: string) {
     const date = new Date(dateStr);

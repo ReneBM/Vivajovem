@@ -47,9 +47,33 @@ export interface Grupo {
     nome: string;
 }
 
-export interface Campanha {
+export interface Campanha extends CampanhaRow {
+    tipo_cadastro?: 'jovem' | 'visitante' | 'lider';
+    objetivo_cadastro?: 'criacao' | 'atualizacao';
+    solicitar_foto?: boolean;
+    inscricoes_campanha?: {
+        id: string;
+        nome_visitante: string;
+        telefone: string | null;
+        idade: number | null;
+        created_at: string;
+        status_validacao?: 'pendente' | 'confirmado' | 'descartado';
+        foto_url?: string | null;
+    }[];
+}
+
+export interface InscricaoCampanha {
     id: string;
-    nome: string;
+    campanha_id: string;
+    nome_visitante: string;
+    telefone: string | null;
+    idade: number | null;
+    jovem_id?: string | null;
+    status_validacao: 'pendente' | 'confirmado' | 'descartado';
+    foto_url?: string | null;
+    created_at: string;
+    validado_em?: string;
+    validado_por?: string;
 }
 
 export type RespostaRow = Database['public']['Tables']['inscricoes_evento_respostas']['Row'];

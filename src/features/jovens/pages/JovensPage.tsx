@@ -200,7 +200,8 @@ export default function Jovens() {
   }
 
   const filteredJovens = jovens.filter((jovem) => {
-    const matchesSearch = jovem.nome.toLowerCase().includes(searchTerm.toLowerCase());
+    const nome = jovem.nome || '';
+    const matchesSearch = nome.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || jovem.status === filterStatus;
     const matchesBatizado =
       filterBatizado === 'all' ||
@@ -460,7 +461,7 @@ export default function Jovens() {
                       <div>
                         <p className="font-medium text-foreground">{jovem.nome}</p>
                         <p className="text-xs text-muted-foreground capitalize">
-                          {jovem.titulo_eclesiastico.toLowerCase()}
+                          {(jovem.titulo_eclesiastico || '').toLowerCase()}
                         </p>
                       </div>
                     </div>

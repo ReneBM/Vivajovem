@@ -107,7 +107,7 @@ export function CampaignFieldsConfig({ fields, onChange }: CampaignFieldsConfigP
           Campos do Formulário
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Selecione quais campos aparecerão no formulário de inscrição
+          Selecione quais campos aparecerão no formulário de cadastro
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

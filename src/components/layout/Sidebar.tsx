@@ -84,7 +84,7 @@ const modules: NavModule[] = [
     items: [
       { name: 'Campanhas', href: '/campanhas', icon: Megaphone, permission: 'marketing.campanhas.visualizar' },
       { name: 'Mensagens', href: '/marketing', icon: MessageCircle, permission: 'marketing.whatsapp.visualizar' },
-      { name: 'Instâncias WhatsApp', href: '/whatsapp', icon: Settings, permission: 'marketing.whatsapp.visualizar' },
+      { name: 'Instâncias WhatsApp', href: '/whatsapp', icon: Settings, permission: 'marketing.instancias.visualizar' },
     ],
   },
   {
@@ -317,7 +317,7 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="p-3 border-t border-sidebar-border">
-          {isAdmin && (
+          {canSeeItem({ name: 'Configurações', href: '/configuracoes', icon: Settings, permission: 'seguranca.configuracoes.visualizar' }) && (
             <NavLink
               to="/configuracoes"
               className={cn(

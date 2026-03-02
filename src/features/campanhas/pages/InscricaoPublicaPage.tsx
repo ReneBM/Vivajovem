@@ -10,24 +10,15 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, CheckCircle, Megaphone, Calendar, User, Phone, Mail,
-  MapPin, Heart, Instagram, Church, ArrowRight, Star, Zap, Users, CreditCard, AlertTriangle
+  MapPin, Heart, Instagram, Church, ArrowRight, Star, Zap, Users, CreditCard, AlertTriangle,
+  Camera, Upload, X
 } from 'lucide-react';
 import { formatPhoneNumber, formatCPF } from '@/lib/formatters';
 import logoViva from '@/assets/slogan-somosum.png';
-import type { FieldConfig } from '@/features/campanhas/components/CampaignFieldsConfig';
+import type { FieldConfig, Campanha } from '@/types/app-types';
 import { DEFAULT_FIELDS } from '@/features/campanhas/components/CampaignFieldsConfig';
 
-interface Campanha {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  cor_primaria: string | null;
-  cor_fundo: string | null;
-  imagem_capa_url: string | null;
-  ativa: boolean;
-  campos_personalizados: any;
-  slug: string;
-}
+// Usando interface Campanha do app-types
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   user: <User className="w-4 h-4" />,
@@ -40,7 +31,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   heart: <Heart className="w-4 h-4" />,
 };
 
-export default function InscricaoCampanha() {
+export default function CadastroCampanha() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [campanha, setCampanha] = useState<Campanha | null>(null);
@@ -49,6 +40,25 @@ export default function InscricaoCampanha() {
   const [submitted, setSubmitted] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false); // Track if it was an update
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeFoto = () => {
+    setSelectedFile(null);
+    setFotoPreview(null);
+  };
 
   const getEnabledFields = (): FieldConfig[] => {
     if (!campanha?.campos_personalizados) return DEFAULT_FIELDS.filter(f => f.enabled);
@@ -119,6 +129,25 @@ export default function InscricaoCampanha() {
         existingJovem = data;
       }
 
+      let fotoUrl = null;
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `inscricoes/${fileName}`;
+
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        fotoUrl = publicUrl;
+      }
+
       const commonPayload: any = {
         nome: formData.nome,
         telefone: formData.telefone || null,
@@ -127,6 +156,8 @@ export default function InscricaoCampanha() {
         batizado: formData.batizado === 'Sim',
         updated_at: new Date().toISOString(),
       };
+
+      if (fotoUrl) commonPayload.foto_url = fotoUrl;
 
       if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
 
@@ -146,8 +177,8 @@ export default function InscricaoCampanha() {
           .select()
           .single();
 
-        if (createError) throw createError;
-        jovemId = newJovem.id;
+        if (createError || !newJovem) throw createError || new Error('Erro ao criar registro');
+        jovemId = (newJovem as any).id;
       }
 
       // 2. Register inscription
@@ -156,17 +187,18 @@ export default function InscricaoCampanha() {
         jovem_id: jovemId,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
-        idade: null // We could calculate from birthdate if needed
+        idade: null, // We could calculate from birthdate if needed
+        foto_url: fotoUrl
       });
 
       if (inscricaoError) throw inscricaoError;
 
       setIsUpdate(wasUpdated);
       setSubmitted(true);
-      toast.success(wasUpdated ? 'Cadastro atualizado e inscrição realizada!' : 'Inscrição realizada com sucesso!');
+      toast.success(wasUpdated ? 'Cadastro atualizado e realizado!' : 'Cadastro realizado com sucesso!');
     } catch (error) {
       console.error('Error submitting inscription:', error);
-      toast.error('Erro ao realizar inscrição');
+      toast.error('Erro ao realizar cadastro');
     } finally {
       setIsSubmitting(false);
     }
@@ -292,8 +324,8 @@ export default function InscricaoCampanha() {
           </h1>
           <p className="text-white/60 text-lg mb-10 leading-relaxed">
             {isUpdate
-              ? 'Seus dados foram atualizados e sua inscrição confirmada.'
-              : 'Sua inscrição foi confirmada com sucesso.'}
+              ? 'Seus dados foram atualizados e seu cadastro confirmado.'
+              : 'Seu cadastro foi confirmado com sucesso.'}
             <br />
             Prepare-se para viver algo incrível!
           </p>
@@ -441,7 +473,7 @@ export default function InscricaoCampanha() {
             <div className="relative z-10">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-white mb-2">
-                  Faça sua inscrição
+                  Faça seu cadastro
                 </h2>
                 <p className="text-white/40 text-sm">
                   {campanha.campos_personalizados ? 'Preencha seus dados para participar' : 'Preencha os campos abaixo para garantir sua vaga'}
@@ -449,6 +481,42 @@ export default function InscricaoCampanha() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
+                {Boolean(campanha.solicitar_foto) && (
+                  <div className="space-y-4 mb-8">
+                    <Label className="text-white/70 font-medium flex items-center gap-2">
+                      <Camera className="w-4 h-4" />
+                      Sua Foto
+                      <span className="text-red-400">*</span>
+                    </Label>
+
+                    <div className="relative group">
+                      {fotoPreview ? (
+                        <div className="relative w-full aspect-square max-w-[200px] mx-auto rounded-2xl overflow-hidden border-2 border-dashed transition-all" style={{ borderColor: `${corPrimaria}40` }}>
+                          <img src={fotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={removeFoto}
+                            className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white hover:bg-black/80 transition-colors shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full aspect-square max-w-[200px] mx-auto rounded-2xl border-2 border-dashed border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all group overflow-hidden">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                            <div className="p-4 rounded-full bg-white/5 mb-4 group-hover:scale-110 transition-transform">
+                              <Upload className="w-8 h-8 text-white/40" />
+                            </div>
+                            <p className="text-sm text-white/60 font-medium mb-1">Clique para enviar</p>
+                            <p className="text-xs text-white/30">PNG, JPG ou JPEG</p>
+                          </div>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} required />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {fields.map((field) => (
                   <div key={field.id} className="space-y-2">
                     <Label className="text-white/70 font-medium flex items-center gap-2">
@@ -519,7 +587,7 @@ export default function InscricaoCampanha() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span>{fields.length > 2 ? 'Atualizar Dados' : 'Confirmar Inscrição'}</span>
+                      <span>{fields.length > 2 ? 'Finalizar' : 'Confirmar Cadastro'}</span>
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </div>
                   )}
