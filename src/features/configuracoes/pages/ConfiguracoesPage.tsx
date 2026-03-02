@@ -180,16 +180,65 @@ export default function Configuracoes() {
           <Card className="glass-card">
             <CardHeader>
               <div className="flex items-center gap-2"><Shield className="w-5 h-5 text-primary" /><CardTitle className="font-display">Segurança</CardTitle></div>
-              <CardDescription>Configurações de segurança da sua conta</CardDescription>
+              <CardDescription>Altere sua senha de acesso</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Key className="w-5 h-5 text-muted-foreground" />
-                  <div><p className="font-medium">Alterar senha</p><p className="text-sm text-muted-foreground">Atualize sua senha de acesso</p></div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const senhaAtual = (form.elements.namedItem('senhaAtual') as HTMLInputElement).value;
+                  const novaSenha = (form.elements.namedItem('novaSenha') as HTMLInputElement).value;
+                  const confirmarSenha = (form.elements.namedItem('confirmarSenha') as HTMLInputElement).value;
+
+                  if (novaSenha.length < 8) { toast.error('A nova senha deve ter no mínimo 8 caracteres'); return; }
+                  if (!/[A-Z]/.test(novaSenha)) { toast.error('A nova senha deve conter pelo menos uma letra maiúscula'); return; }
+                  if (!/[0-9]/.test(novaSenha)) { toast.error('A nova senha deve conter pelo menos um número'); return; }
+                  if (novaSenha !== confirmarSenha) { toast.error('As senhas não coincidem'); return; }
+
+                  setSaving(true);
+                  try {
+                    // Verificar senha atual fazendo login
+                    const { error: loginError } = await supabase.auth.signInWithPassword({
+                      email: user?.email || '',
+                      password: senhaAtual,
+                    });
+                    if (loginError) { toast.error('Senha atual incorreta'); setSaving(false); return; }
+
+                    // Atualizar para a nova senha
+                    const { error: updateError } = await supabase.auth.updateUser({ password: novaSenha });
+                    if (updateError) throw updateError;
+
+                    toast.success('Senha alterada com sucesso!');
+                    form.reset();
+                  } catch (error: any) {
+                    toast.error('Erro ao alterar senha: ' + (error.message || 'Tente novamente'));
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="senhaAtual">Senha Atual *</Label>
+                  <Input id="senhaAtual" name="senhaAtual" type="password" placeholder="Digite sua senha atual" required />
                 </div>
-                <Button variant="outline">Alterar</Button>
-              </div>
+                <Separator />
+                <div className="grid gap-2">
+                  <Label htmlFor="novaSenha">Nova Senha *</Label>
+                  <Input id="novaSenha" name="novaSenha" type="password" placeholder="Mínimo 8 caracteres, 1 maiúscula, 1 número" required />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmarSenha">Confirmar Nova Senha *</Label>
+                  <Input id="confirmarSenha" name="confirmarSenha" type="password" placeholder="Repita a nova senha" required />
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Key className="w-4 h-4 mr-2" />}
+                    Alterar Senha
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
