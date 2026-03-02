@@ -107,13 +107,17 @@ export default function Funcoes() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: any = {
         nome: formData.nome,
         descricao: formData.descricao || null,
         permissoes: formData.permissoes,
         cor: formData.cor,
-        atribuivel_por: formData.atribuivel_por,
       };
+
+      // Only include atribuivel_por if it has values
+      if (formData.atribuivel_por.length > 0) {
+        payload.atribuivel_por = formData.atribuivel_por;
+      }
 
       if (editingRole) {
         const { error } = await supabase.from('roles').update(payload).eq('id', editingRole.id);
@@ -128,8 +132,9 @@ export default function Funcoes() {
       resetForm();
       fetchRoles();
     } catch (error: any) {
+      console.error('Role Error:', error);
       if (error.code === '23505') toast.error('Já existe uma função com esse nome.');
-      else toast.error('Erro ao salvar função');
+      else toast.error('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setIsSubmitting(false);
     }
