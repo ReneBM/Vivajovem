@@ -105,33 +105,37 @@ export default function CadastroCampanha() {
       const rawPhone = formData.telefone ? formData.telefone.replace(/\D/g, '') : null;
       const rawCPF = formData.cpf ? formData.cpf.replace(/\D/g, '') : null;
 
-      let jovemId: string;
+      // Define target table and ID column based on campaign type
+      const tipo = campanha.tipo_cadastro || 'visitante';
+      const table = tipo === 'jovem' ? 'jovens' : tipo === 'lider' ? 'lideres' : 'jovens_visitantes';
+
+      let recordId: string;
       let wasUpdated = false;
 
       // 1. Check if user exists (Priority: CPF > Phone)
-      let existingJovem = null;
+      let existingRecord = null;
 
-      if (rawCPF) {
+      // Search by CPF only if the table supports it (jovens and lideres)
+      if (rawCPF && (tipo === 'jovem' || tipo === 'lider')) {
         const { data } = await supabase
-          .from('jovens')
+          .from(table as any)
           .select('id')
           .eq('cpf', rawCPF)
           .maybeSingle();
-        existingJovem = data;
+        existingRecord = data;
       }
 
-      if (!existingJovem && rawPhone) {
+      if (!existingRecord && rawPhone) {
         const { data } = await supabase
-          .from('jovens')
+          .from(table as any)
           .select('id')
-          .eq('telefone', formData.telefone) // Using formatted phone as stored in DB currently
+          .eq('telefone', formData.telefone)
           .maybeSingle();
-        existingJovem = data;
+        existingRecord = data;
       }
 
       let fotoUrl = null;
       if (selectedFile) {
-        // Garantir nome de arquivo seguro e único
         const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
         const timestamp = new Date().getTime();
         const randomString = Math.random().toString(36).substring(2, 8);
@@ -160,46 +164,65 @@ export default function CadastroCampanha() {
       const commonPayload: any = {
         nome: formData.nome,
         telefone: formData.telefone || null,
-        cpf: rawCPF,
-        data_nascimento: formData.data_nascimento || null,
-        batizado: formData.batizado === 'Sim',
         updated_at: new Date().toISOString(),
       };
 
+      // Add table-specific fields
+      if (tipo === 'jovem' || tipo === 'lider') {
+        commonPayload.cpf = rawCPF;
+        commonPayload.data_nascimento = formData.data_nascimento || null;
+      }
+
+      if (tipo === 'jovem') {
+        commonPayload.batizado = formData.batizado === 'Sim';
+        if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
+      }
+
+      if (tipo === 'visitante') {
+        commonPayload.idade = null; // Can be parsed if field exists
+      }
+
       if (fotoUrl) commonPayload.foto_url = fotoUrl;
 
-      if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
-
-      if (existingJovem) {
+      if (existingRecord) {
         // UPDATE existing
-        jovemId = existingJovem.id;
+        recordId = existingRecord.id;
         wasUpdated = true;
-        const { error: updateError } = await supabase.from('jovens').update(commonPayload).eq('id', jovemId);
+        const { error: updateError } = await supabase.from(table as any).update(commonPayload).eq('id', recordId);
         if (updateError) throw updateError;
       } else {
         // CREATE new
-        const { data: newJovem, error: createError } = await supabase
-          .from('jovens')
-          .insert({
-            ...commonPayload,
-            status: 'ATIVO' as const,
-          })
+        const insertPayload = {
+          ...commonPayload,
+          status: 'ATIVO' as const,
+        };
+
+        // Visitors don't have 'status' column in current schema
+        if (tipo === 'visitante') delete (insertPayload as any).status;
+
+        const { data: newRecord, error: createError } = await supabase
+          .from(table as any)
+          .insert(insertPayload)
           .select()
           .single();
 
-        if (createError || !newJovem) throw createError || new Error('Erro ao criar registro');
-        jovemId = (newJovem as any).id;
+        if (createError || !newRecord) throw createError || new Error('Erro ao criar registro');
+        recordId = (newRecord as any).id;
       }
 
-      // 2. Register inscription
-      const { error: inscricaoError } = await supabase.from('inscricoes_campanha').insert({
+      // 2. Register inscription with specific type column
+      const inscricaoPayload: any = {
         campanha_id: campanha.id,
-        jovem_id: jovemId,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
-        idade: null,
         foto_url: fotoUrl
-      });
+      };
+
+      if (tipo === 'jovem') inscricaoPayload.jovem_id = recordId;
+      else if (tipo === 'visitante') (inscricaoPayload as any).visitante_id = recordId;
+      else if (tipo === 'lider') (inscricaoPayload as any).lider_id = recordId;
+
+      const { error: inscricaoError } = await supabase.from('inscricoes_campanha').insert(inscricaoPayload);
 
       if (inscricaoError) throw inscricaoError;
 

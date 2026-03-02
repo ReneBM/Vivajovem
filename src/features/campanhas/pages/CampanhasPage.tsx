@@ -76,7 +76,10 @@ export default function Campanhas() {
 
   async function fetchCampanhas() {
     try {
-      const { data, error } = await supabase.from('campanhas').select('*, inscricoes_campanha(*)').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('campanhas')
+        .select('*, inscricoes_campanha(*)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setCampanhas((data as any[]) || []);
     } catch { toast.error('Erro ao carregar campanhas'); } finally { setLoading(false); }
