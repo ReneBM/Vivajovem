@@ -61,6 +61,8 @@ export default function Campanhas() {
   const [selectedInscricao, setSelectedInscricao] = useState<any | null>(null);
   const [validationFormData, setValidationFormData] = useState<any>({});
   const [deleteInscricaoId, setDeleteInscricaoId] = useState<string | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedInscricaoDetails, setSelectedInscricaoDetails] = useState<any | null>(null);
 
   const [formData, setFormData] = useState({
     nome: '', descricao: '', data_inicio: '', data_fim: '', slug: '',
@@ -421,6 +423,17 @@ export default function Campanhas() {
                         {i.status_validacao !== 'confirmado' && (
                           <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => openValidationModal(i)}>Validar</Button>
                         )}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                          onClick={() => {
+                            setSelectedInscricaoDetails(i);
+                            setIsDetailsDialogOpen(true);
+                          }}
+                        >
+                          Ver Dados
+                        </Button>
                         <Button variant="link" size="sm" className="h-auto p-0 text-xs text-destructive hover:text-destructive/80" onClick={() => setDeleteInscricaoId(i.id)}>Excluir</Button>
                       </div>
                     </div>
@@ -482,6 +495,39 @@ export default function Campanhas() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Cadastro</DialogTitle>
+            <DialogDescription>Dados completos preenchidos pelo usuário.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-4 pr-4">
+            <div className="space-y-4">
+              {selectedInscricaoDetails?.dados ? (
+                Object.entries(selectedInscricaoDetails.dados).map(([key, value]: [string, any]) => {
+                  // Pular campos vazios ou técnicos se necessário
+                  if (!value || key === 'id' || key === 'updated_at') return null;
+
+                  return (
+                    <div key={key} className="border-b border-border/50 pb-2">
+                      <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{key.replace(/_/g, ' ')}</Label>
+                      <p className="text-sm font-medium mt-0.5">{String(value)}</p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground italic">
+                  Nenhum dado extra disponível para este cadastro.
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end pt-4 border-t">
+            <Button variant="hero" onClick={() => setIsDetailsDialogOpen(false)}>Fechar</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

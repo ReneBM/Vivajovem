@@ -215,7 +215,8 @@ export default function CadastroCampanha() {
         campanha_id: campanha.id,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
-        foto_url: fotoUrl
+        foto_url: fotoUrl,
+        dados: formData // Save all form data for detailed view
       };
 
       if (tipo === 'jovem') inscricaoPayload.jovem_id = recordId;
