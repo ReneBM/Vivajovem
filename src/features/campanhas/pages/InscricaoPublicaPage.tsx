@@ -177,7 +177,7 @@ export default function CadastroCampanha() {
       }
 
       if (tipo === 'lider') {
-        // lideres table only has: nome, telefone, email, user_id, status, foto_url, titulo_eclesiastico
+        commonPayload.cpf = rawCPF;
         commonPayload.updated_at = new Date().toISOString();
         if (formData.email) commonPayload.email = formData.email;
         if (fotoUrl) commonPayload.foto_url = fotoUrl;
