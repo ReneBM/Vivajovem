@@ -131,15 +131,24 @@ export default function CadastroCampanha() {
 
       let fotoUrl = null;
       if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
+        // Garantir nome de arquivo seguro e único
+        const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const timestamp = new Date().getTime();
+        const randomString = Math.random().toString(36).substring(2, 8);
+        const fileName = `${timestamp}-${randomString}.${fileExt}`;
         const filePath = `inscricoes/${fileName}`;
 
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(filePath, selectedFile);
+          .upload(filePath, selectedFile, {
+            upsert: true,
+            contentType: selectedFile.type
+          });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Storage Upload Error:', uploadError);
+          throw new Error(`Erro ao enviar foto: ${uploadError.message}`);
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
@@ -165,7 +174,8 @@ export default function CadastroCampanha() {
         // UPDATE existing
         jovemId = existingJovem.id;
         wasUpdated = true;
-        await supabase.from('jovens').update(commonPayload).eq('id', jovemId);
+        const { error: updateError } = await supabase.from('jovens').update(commonPayload).eq('id', jovemId);
+        if (updateError) throw updateError;
       } else {
         // CREATE new
         const { data: newJovem, error: createError } = await supabase
@@ -187,7 +197,7 @@ export default function CadastroCampanha() {
         jovem_id: jovemId,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
-        idade: null, // We could calculate from birthdate if needed
+        idade: null,
         foto_url: fotoUrl
       });
 
@@ -196,9 +206,10 @@ export default function CadastroCampanha() {
       setIsUpdate(wasUpdated);
       setSubmitted(true);
       toast.success(wasUpdated ? 'Cadastro atualizado e realizado!' : 'Cadastro realizado com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting inscription:', error);
-      toast.error('Erro ao realizar cadastro');
+      const errorMessage = error.message || 'Erro ao realizar cadastro';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
