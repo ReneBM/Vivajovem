@@ -83,7 +83,13 @@ export default function Campanhas() {
         .select('*, inscricoes_campanha(*)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setCampanhas((data as any[]) || []);
+      const newData = (data as any[]) || [];
+      setCampanhas(newData);
+      // Atualizar selectedCampanha se estiver aberta para refletir mudanças de status
+      if (selectedCampanha) {
+        const updated = newData.find(c => c.id === selectedCampanha.id);
+        if (updated) setSelectedCampanha(updated);
+      }
     } catch { toast.error('Erro ao carregar campanhas'); } finally { setLoading(false); }
   }
 
@@ -492,8 +498,8 @@ export default function Campanhas() {
                       <Badge
                         variant={i.status_validacao === 'confirmado' ? 'secondary' : i.status_validacao === 'recusado' ? 'destructive' : 'outline'}
                         className={`text-[10px] py-0 ${i.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20'
-                            : i.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
-                              : ''
+                          : i.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
+                            : ''
                           }`}
                       >
                         {i.status_validacao?.toUpperCase() || 'PENDENTE'}
@@ -535,8 +541,8 @@ export default function Campanhas() {
                 <Badge
                   variant={selectedInscricaoDetails?.status_validacao === 'confirmado' ? 'secondary' : selectedInscricaoDetails?.status_validacao === 'recusado' ? 'destructive' : 'outline'}
                   className={`text-xs px-3 py-1 ${selectedInscricaoDetails?.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20'
-                      : selectedInscricaoDetails?.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
-                        : 'bg-yellow-500/20 text-yellow-600 border-yellow-500/20'
+                    : selectedInscricaoDetails?.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
+                      : 'bg-yellow-500/20 text-yellow-600 border-yellow-500/20'
                     }`}
                 >
                   {selectedInscricaoDetails?.status_validacao?.toUpperCase() || 'PENDENTE'}
