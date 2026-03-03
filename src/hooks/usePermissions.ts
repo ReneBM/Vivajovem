@@ -185,12 +185,25 @@ export function usePermissions() {
 
   useEffect(() => {
     if (user) {
+      // Sempre marcar como loading antes de buscar para evitar flash de "Acesso Restrito"
+      setLoading(true);
       fetchPermissions();
     } else {
       setPermissions([]);
       setIsAdmin(false);
       setLoading(false);
     }
+  }, [user]);
+
+  // Re-buscar permissões quando o app volta do background (mobile lock/unlock)
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible' && user) {
+        fetchPermissions();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user]);
 
   async function fetchPermissions() {
