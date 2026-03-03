@@ -92,6 +92,7 @@ const modules: NavModule[] = [
     icon: Shield,
     permissionPrefix: 'seguranca',
     items: [
+      { name: 'Perfil', href: '/perfil', icon: Users, permission: undefined },
       { name: 'Usuários', href: '/usuarios', icon: UserCog, permission: 'seguranca.usuarios.visualizar' },
       { name: 'Funções', href: '/funcoes', icon: Shield, permission: 'seguranca.funcoes.visualizar' },
     ],

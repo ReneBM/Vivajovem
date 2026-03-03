@@ -153,6 +153,8 @@ export default function Campanhas() {
       const { error } = await supabase.from('inscricoes_campanha').delete().eq('id', deleteInscricaoId);
       if (error) throw error;
       toast.success('Cadastro excluído com sucesso!');
+      setSelectedInscricaoDetails(null);
+      setIsDetailsDialogOpen(false);
       fetchCampanhas();
     } catch (err: any) {
       toast.error('Erro ao excluir cadastro: ' + err.message);
@@ -164,7 +166,8 @@ export default function Campanhas() {
   function openQRSheet(c: Campanha) { setSelectedCampanha(c); setIsQRSheetOpen(true); }
   function openInscricoes(c: Campanha) { setSelectedCampanha(c); setIsInscricoesSheetOpen(true); }
 
-  function openValidationModal(inscricao: any) {
+  function openFichaModal(inscricao: any) {
+    setSelectedInscricaoDetails(inscricao);
     setSelectedInscricao(inscricao);
     const dados = inscricao.dados || {};
     setValidationFormData({
@@ -178,7 +181,26 @@ export default function Campanhas() {
       instagram: dados.instagram || '',
       tipo: selectedCampanha?.tipo_cadastro || 'visitante'
     });
-    setIsValidating(true);
+    setIsDetailsDialogOpen(true);
+  }
+
+  async function handleRecusar() {
+    if (!selectedInscricaoDetails) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('inscricoes_campanha')
+        .update({ status_validacao: 'recusado', validado_em: new Date().toISOString() } as any)
+        .eq('id', selectedInscricaoDetails.id);
+      if (error) throw error;
+      toast.success('Cadastro recusado.');
+      setIsDetailsDialogOpen(false);
+      fetchCampanhas();
+    } catch (err: any) {
+      toast.error('Erro ao recusar: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function handleConfirmValidation(e: React.FormEvent) {
@@ -447,34 +469,36 @@ export default function Campanhas() {
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           {selectedCampanha && <>
             <SheetHeader><SheetTitle>Cadastros</SheetTitle><SheetDescription>{selectedCampanha.inscricoes_campanha?.length || 0} total</SheetDescription></SheetHeader>
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-2">
               {(selectedCampanha.inscricoes_campanha || []).length === 0 ? <p className="text-center text-muted-foreground py-8">Sem cadastros</p> :
                 selectedCampanha.inscricoes_campanha?.map(i => (
-                  <div key={i.id} className="flex gap-3 p-3 rounded-lg border bg-muted/30 items-center">
-                    <div className="p-2 rounded-full bg-primary/10"><UserPlus className="w-4 h-4 text-primary" /></div>
-                    <div className="flex-1"><p className="font-medium text-sm">{i.nome_visitante}</p><p className="text-xs text-muted-foreground">{i.telefone || '-'}</p></div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs text-muted-foreground">{format(parseISO(i.created_at), 'dd/MM/yy', { locale: ptBR })}</span>
-                      <Badge variant={i.status_validacao === 'confirmado' ? 'secondary' : 'outline'} className={`text-[10px] py-0 ${i.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20' : ''}`}>
+                  <div
+                    key={i.id}
+                    className="flex gap-3 p-3 rounded-lg border bg-muted/30 items-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => openFichaModal(i)}
+                  >
+                    {i.foto_url ? (
+                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-muted shrink-0">
+                        <img src={i.foto_url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-full bg-primary/10 shrink-0"><UserPlus className="w-4 h-4 text-primary" /></div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{i.nome_visitante}</p>
+                      <p className="text-xs text-muted-foreground">{i.telefone || '-'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        variant={i.status_validacao === 'confirmado' ? 'secondary' : i.status_validacao === 'recusado' ? 'destructive' : 'outline'}
+                        className={`text-[10px] py-0 ${i.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20'
+                            : i.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
+                              : ''
+                          }`}
+                      >
                         {i.status_validacao?.toUpperCase() || 'PENDENTE'}
                       </Badge>
-                      <div className="flex gap-2">
-                        {i.status_validacao !== 'confirmado' && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => openValidationModal(i)}>Validar</Button>
-                        )}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                          onClick={() => {
-                            setSelectedInscricaoDetails(i);
-                            setIsDetailsDialogOpen(true);
-                          }}
-                        >
-                          Ver Dados
-                        </Button>
-                        <Button variant="link" size="sm" className="h-auto p-0 text-xs text-destructive hover:text-destructive/80" onClick={() => setDeleteInscricaoId(i.id)}>Excluir</Button>
-                      </div>
+                      <Eye className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </div>
                 ))
@@ -484,6 +508,121 @@ export default function Campanhas() {
         </SheetContent>
       </Sheet>
 
+      {/* Ficha Cadastral Modal */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display">Ficha Cadastral</DialogTitle>
+            <DialogDescription>Dados do inscrito na campanha{selectedCampanha ? ` "${selectedCampanha.nome}"` : ''}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[65vh] pr-4">
+            <div className="space-y-5">
+              {/* Foto */}
+              {selectedInscricaoDetails?.foto_url && (
+                <div className="flex flex-col items-center gap-2 pb-4">
+                  <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-primary/20 shadow-lg">
+                    <img
+                      src={selectedInscricaoDetails.foto_url}
+                      alt="Foto do inscrito"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Status Badge */}
+              <div className="flex justify-center">
+                <Badge
+                  variant={selectedInscricaoDetails?.status_validacao === 'confirmado' ? 'secondary' : selectedInscricaoDetails?.status_validacao === 'recusado' ? 'destructive' : 'outline'}
+                  className={`text-xs px-3 py-1 ${selectedInscricaoDetails?.status_validacao === 'confirmado' ? 'bg-success/20 text-success border-success/20'
+                      : selectedInscricaoDetails?.status_validacao === 'recusado' ? 'bg-destructive/20 text-destructive border-destructive/20'
+                        : 'bg-yellow-500/20 text-yellow-600 border-yellow-500/20'
+                    }`}
+                >
+                  {selectedInscricaoDetails?.status_validacao?.toUpperCase() || 'PENDENTE'}
+                </Badge>
+              </div>
+
+              {/* Dados como ficha */}
+              <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nome</Label>
+                    <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.nome_visitante || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Telefone</Label>
+                    <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.telefone || '-'}</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data do Cadastro</Label>
+                  <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.created_at ? format(parseISO(selectedInscricaoDetails.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}</p>
+                </div>
+
+                {/* Campos extras do formulário */}
+                {selectedInscricaoDetails?.dados && Object.keys(selectedInscricaoDetails.dados).length > 0 && (
+                  <>
+                    <div className="border-t border-border/50 pt-3 mt-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Dados do Formulário</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(selectedInscricaoDetails.dados).map(([key, value]: [string, any]) => {
+                        if (value === undefined || value === null || value === '' || key === 'nome' || key === 'telefone') return null;
+                        return (
+                          <div key={key}>
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{key.replace(/_/g, ' ')}</Label>
+                            <p className="text-sm font-medium mt-0.5">{String(value)}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-4 border-t">
+            {selectedInscricaoDetails?.status_validacao !== 'confirmado' && selectedInscricaoDetails?.status_validacao !== 'recusado' && (
+              <>
+                <Button
+                  variant="hero"
+                  className="flex-1"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setIsDetailsDialogOpen(false);
+                    setIsValidating(true);
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Validar
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10"
+                  disabled={isSubmitting}
+                  onClick={handleRecusar}
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Recusar
+                </Button>
+              </>
+            )}
+            <Button
+              variant="destructive"
+              className={selectedInscricaoDetails?.status_validacao !== 'confirmado' && selectedInscricaoDetails?.status_validacao !== 'recusado' ? '' : 'flex-1'}
+              onClick={() => setDeleteInscricaoId(selectedInscricaoDetails?.id)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation Form Modal (opened from ficha) */}
       <Dialog open={isValidating} onOpenChange={setIsValidating}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -499,7 +638,6 @@ export default function Campanhas() {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Foto enviada</p>
             </div>
           )}
           <form onSubmit={handleConfirmValidation} className="space-y-4 py-4">
@@ -534,71 +672,6 @@ export default function Campanhas() {
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Cadastro</DialogTitle>
-            <DialogDescription>Dados completos preenchidos pelo usuário.</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] mt-4 pr-4">
-            <div className="space-y-4">
-              {/* Foto do inscrito */}
-              {selectedInscricaoDetails?.foto_url && (
-                <div className="flex flex-col items-center gap-2 pb-4 border-b border-border/50">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-muted shadow-lg">
-                    <img
-                      src={selectedInscricaoDetails.foto_url}
-                      alt="Foto do inscrito"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Dados básicos (sempre disponíveis) */}
-              <div className="border-b border-border/50 pb-2">
-                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nome</Label>
-                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.nome_visitante || '-'}</p>
-              </div>
-              <div className="border-b border-border/50 pb-2">
-                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Telefone</Label>
-                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.telefone || '-'}</p>
-              </div>
-              <div className="border-b border-border/50 pb-2">
-                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Status</Label>
-                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.status_validacao?.toUpperCase() || 'PENDENTE'}</p>
-              </div>
-              <div className="border-b border-border/50 pb-2">
-                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data do Cadastro</Label>
-                <p className="text-sm font-medium mt-0.5">{selectedInscricaoDetails?.created_at ? format(parseISO(selectedInscricaoDetails.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}</p>
-              </div>
-
-              {/* Dados extras do formulário (se disponíveis) */}
-              {selectedInscricaoDetails?.dados && Object.keys(selectedInscricaoDetails.dados).length > 0 && (
-                <>
-                  <div className="pt-2">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Campos do Formulário</p>
-                  </div>
-                  {Object.entries(selectedInscricaoDetails.dados).map(([key, value]: [string, any]) => {
-                    if (value === undefined || value === null || value === '' || key === 'nome') return null;
-
-                    return (
-                      <div key={key} className="border-b border-border/50 pb-2">
-                        <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{key.replace(/_/g, ' ')}</Label>
-                        <p className="text-sm font-medium mt-0.5">{String(value)}</p>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-            </div>
-          </ScrollArea>
-          <div className="flex justify-end pt-4 border-t">
-            <Button variant="hero" onClick={() => setIsDetailsDialogOpen(false)}>Fechar</Button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>

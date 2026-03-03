@@ -27,6 +27,7 @@ import Usuarios from "@/features/usuarios/pages/UsuariosPage";
 import Marketing from "@/features/marketing/pages/MarketingPage";
 import WhatsappManager from "@/features/whatsapp/pages/EvolutionManagerPage";
 import Funcoes from "@/features/funcoes/pages/FuncoesPage";
+import Perfil from "@/features/configuracoes/pages/PerfilPage";
 import NotFound from "./pages/NotFound";
 
 // Layout
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/marketing" element={<RoleGuard requiredPermission="marketing.whatsapp.visualizar"><Marketing /></RoleGuard>} />
               <Route path="/whatsapp" element={<RoleGuard requiredPermission="marketing.instancias.visualizar"><WhatsappManager /></RoleGuard>} />
               <Route path="/funcoes" element={<RoleGuard requiredPermission="seguranca.funcoes.visualizar"><Funcoes /></RoleGuard>} />
+              <Route path="/perfil" element={<Perfil />} />
             </Route>
 
             {/* Catch-all */}
