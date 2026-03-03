@@ -166,10 +166,16 @@ export default function Campanhas() {
 
   function openValidationModal(inscricao: any) {
     setSelectedInscricao(inscricao);
+    const dados = inscricao.dados || {};
     setValidationFormData({
-      nome: inscricao.nome_visitante,
-      telefone: inscricao.telefone || '',
-      idade: inscricao.idade || '',
+      nome: inscricao.nome_visitante || dados.nome || '',
+      telefone: inscricao.telefone || dados.telefone || '',
+      idade: dados.idade || '',
+      cpf: dados.cpf || '',
+      email: dados.email || '',
+      data_nascimento: dados.data_nascimento || '',
+      batizado: dados.batizado || '',
+      instagram: dados.instagram || '',
       tipo: selectedCampanha?.tipo_cadastro || 'visitante'
     });
     setIsValidating(true);
@@ -183,24 +189,57 @@ export default function Campanhas() {
     try {
       const tipo = selectedCampanha.tipo_cadastro || 'visitante';
       const table = tipo === 'jovem' ? 'jovens' : tipo === 'lider' ? 'lideres' : 'jovens_visitantes';
+      const rawCPF = validationFormData.cpf ? validationFormData.cpf.replace(/\D/g, '') : null;
 
       const payload: any = {
         nome: validationFormData.nome,
         telefone: validationFormData.telefone,
       };
 
-      if (tipo === 'visitante') payload.idade = validationFormData.idade;
-      if (tipo === 'jovem') payload.data_nascimento = validationFormData.data_nascimento;
       if (selectedInscricao.foto_url) payload.foto_url = selectedInscricao.foto_url;
 
-      // 1. Criar registro oficial
-      const { error: insertError } = await supabase.from(table).insert(payload as any);
+      if (tipo === 'jovem') {
+        if (rawCPF) payload.cpf = rawCPF;
+        payload.data_nascimento = validationFormData.data_nascimento || null;
+        payload.batizado = validationFormData.batizado === 'Sim';
+        payload.status = 'ATIVO';
+        if (validationFormData.instagram) payload.redes_sociais = { instagram: validationFormData.instagram };
+      }
+
+      if (tipo === 'lider') {
+        if (rawCPF) payload.cpf = rawCPF;
+        if (validationFormData.email) payload.email = validationFormData.email;
+        payload.status = 'ATIVO';
+      }
+
+      if (tipo === 'visitante') {
+        payload.idade = validationFormData.idade;
+        if (validationFormData.email) payload.email = validationFormData.email;
+      }
+
+      // 1. Criar registro oficial na tabela principal
+      const { data: newRecord, error: insertError } = await supabase
+        .from(table)
+        .insert(payload as any)
+        .select()
+        .single();
       if (insertError) throw insertError;
 
-      // 2. Marcar cadastro como confirmado
+      // 2. Marcar cadastro como confirmado e vincular ao registro criado
+      const updatePayload: any = {
+        status_validacao: 'confirmado',
+        validado_em: new Date().toISOString(),
+      };
+      if (newRecord) {
+        const recordId = (newRecord as any).id;
+        if (tipo === 'jovem') updatePayload.jovem_id = recordId;
+        if (tipo === 'visitante') updatePayload.visitante_id = recordId;
+        if (tipo === 'lider') updatePayload.lider_id = recordId;
+      }
+
       const { error: updateError } = await supabase
         .from('inscricoes_campanha')
-        .update({ status_validacao: 'confirmado', validado_em: new Date().toISOString() } as any)
+        .update(updatePayload as any)
         .eq('id', selectedInscricao.id);
 
       if (updateError) throw updateError;

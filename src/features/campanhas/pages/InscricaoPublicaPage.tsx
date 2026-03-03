@@ -38,7 +38,7 @@ export default function CadastroCampanha() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [isUpdate, setIsUpdate] = useState(false); // Track if it was an update
+
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
@@ -101,39 +101,7 @@ export default function CadastroCampanha() {
     setIsSubmitting(true);
 
     try {
-      // Clean data for search
-      const rawPhone = formData.telefone ? formData.telefone.replace(/\D/g, '') : null;
-      const rawCPF = formData.cpf ? formData.cpf.replace(/\D/g, '') : null;
-
-      // Define target table and ID column based on campaign type
-      const tipo = campanha.tipo_cadastro || 'visitante';
-      const table = tipo === 'jovem' ? 'jovens' : tipo === 'lider' ? 'lideres' : 'jovens_visitantes';
-
-      let recordId: string;
-      let wasUpdated = false;
-
-      // 1. Check if user exists (Priority: CPF > Phone)
-      let existingRecord = null;
-
-      // Search by CPF only if the table supports it (jovens and lideres)
-      if (rawCPF && (tipo === 'jovem' || tipo === 'lider')) {
-        const { data } = await supabase
-          .from(table as any)
-          .select('id')
-          .eq('cpf', rawCPF)
-          .maybeSingle();
-        existingRecord = data;
-      }
-
-      if (!existingRecord && rawPhone) {
-        const { data } = await supabase
-          .from(table as any)
-          .select('id')
-          .eq('telefone', formData.telefone)
-          .maybeSingle();
-        existingRecord = data;
-      }
-
+      // Upload foto if provided
       let fotoUrl = null;
       if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
@@ -161,74 +129,17 @@ export default function CadastroCampanha() {
         fotoUrl = publicUrl;
       }
 
-      const commonPayload: any = {
-        nome: formData.nome,
-        telefone: formData.telefone || null,
-      };
-
-      // Add table-specific fields based on actual table schema
-      if (tipo === 'jovem') {
-        commonPayload.cpf = rawCPF;
-        commonPayload.data_nascimento = formData.data_nascimento || null;
-        commonPayload.batizado = formData.batizado === 'Sim';
-        commonPayload.updated_at = new Date().toISOString();
-        if (formData.instagram) commonPayload.redes_sociais = { instagram: formData.instagram };
-        if (fotoUrl) commonPayload.foto_url = fotoUrl;
-      }
-
-      if (tipo === 'lider') {
-        commonPayload.cpf = rawCPF;
-        commonPayload.updated_at = new Date().toISOString();
-        if (formData.email) commonPayload.email = formData.email;
-        if (fotoUrl) commonPayload.foto_url = fotoUrl;
-      }
-
-      if (tipo === 'visitante') {
-        // jovens_visitantes table has: nome, telefone, idade, email, observacao
-        commonPayload.updated_at = new Date().toISOString();
-        if (formData.email) commonPayload.email = formData.email;
-      }
-
-      if (existingRecord) {
-        // UPDATE existing
-        recordId = existingRecord.id;
-        wasUpdated = true;
-        const { error: updateError } = await supabase.from(table as any).update(commonPayload).eq('id', recordId);
-        if (updateError) throw updateError;
-      } else {
-        // CREATE new
-        const insertPayload = { ...commonPayload };
-
-        // Only jovens and lideres have 'status' column
-        if (tipo === 'jovem' || tipo === 'lider') {
-          insertPayload.status = 'ATIVO';
-        }
-
-        const { data: newRecord, error: createError } = await supabase
-          .from(table as any)
-          .insert(insertPayload)
-          .select()
-          .single();
-
-        if (createError || !newRecord) throw createError || new Error('Erro ao criar registro');
-        recordId = (newRecord as any).id;
-      }
-
-      // 2. Register inscription - use only columns guaranteed to exist
+      // Save ONLY to inscricoes_campanha (pending validation)
+      // The record in the main table (jovens/lideres/jovens_visitantes) will be
+      // created only when the admin validates the inscription.
       const inscricaoPayload: any = {
         campanha_id: campanha.id,
         nome_visitante: formData.nome,
         telefone: formData.telefone || null,
         foto_url: fotoUrl,
-        jovem_id: tipo === 'jovem' ? recordId : null,
+        dados: formData,
+        status_validacao: 'pendente',
       };
-
-      // Try to include optional columns (may not exist if scripts weren't run)
-      try {
-        inscricaoPayload.dados = formData;
-        if (tipo === 'visitante') inscricaoPayload.visitante_id = recordId;
-        if (tipo === 'lider') inscricaoPayload.lider_id = recordId;
-      } catch { /* optional columns */ }
 
       const { error: inscricaoError } = await supabase.from('inscricoes_campanha').insert(inscricaoPayload);
 
@@ -239,7 +150,6 @@ export default function CadastroCampanha() {
           nome_visitante: formData.nome,
           telefone: formData.telefone || null,
           foto_url: fotoUrl,
-          jovem_id: recordId,
         };
         const { error: fallbackError } = await supabase.from('inscricoes_campanha').insert(fallbackPayload);
         if (fallbackError) throw fallbackError;
@@ -247,9 +157,8 @@ export default function CadastroCampanha() {
         throw inscricaoError;
       }
 
-      setIsUpdate(wasUpdated);
       setSubmitted(true);
-      toast.success(wasUpdated ? 'Cadastro atualizado e realizado!' : 'Cadastro realizado com sucesso!');
+      toast.success('Cadastro realizado com sucesso! Aguarde a validação.');
     } catch (error: any) {
       console.error('Error submitting inscription:', error);
       const errorMessage = error.message || 'Erro ao realizar cadastro';
@@ -375,12 +284,10 @@ export default function CadastroCampanha() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            {isUpdate ? 'Dados Atualizados!' : 'Você está dentro!'}
+            Você está dentro!
           </h1>
           <p className="text-white/60 text-lg mb-10 leading-relaxed">
-            {isUpdate
-              ? 'Seus dados foram atualizados e seu cadastro confirmado.'
-              : 'Seu cadastro foi confirmado com sucesso.'}
+            Seu cadastro foi recebido com sucesso e está aguardando validação.
             <br />
             Prepare-se para viver algo incrível!
           </p>
