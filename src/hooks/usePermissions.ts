@@ -109,6 +109,12 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     key: 'seguranca',
     label: 'Segurança',
     resources: [
+      {
+        key: 'perfil', label: 'Perfil', actions: [
+          { key: 'visualizar', label: 'Visualizar' },
+          { key: 'editar', label: 'Editar' },
+        ]
+      },
       { key: 'usuarios', label: 'Usuários', actions: [...ACTIONS_CRUD] },
       { key: 'funcoes', label: 'Funções', actions: [...ACTIONS_CRUD] },
       {

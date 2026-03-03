@@ -67,7 +67,7 @@ const App = () => (
               <Route path="/marketing" element={<RoleGuard requiredPermission="marketing.whatsapp.visualizar"><Marketing /></RoleGuard>} />
               <Route path="/whatsapp" element={<RoleGuard requiredPermission="marketing.instancias.visualizar"><WhatsappManager /></RoleGuard>} />
               <Route path="/funcoes" element={<RoleGuard requiredPermission="seguranca.funcoes.visualizar"><Funcoes /></RoleGuard>} />
-              <Route path="/perfil" element={<Perfil />} />
+              <Route path="/perfil" element={<RoleGuard requiredPermission="seguranca.perfil.visualizar"><Perfil /></RoleGuard>} />
             </Route>
 
             {/* Catch-all */}
