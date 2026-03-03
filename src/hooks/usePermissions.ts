@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
@@ -182,13 +182,19 @@ export function usePermissions() {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      // Sempre marcar como loading antes de buscar para evitar flash de "Acesso Restrito"
-      setLoading(true);
+      // Só mostrar loading se é um user diferente (primeiro login ou troca de conta)
+      // Em token refresh (mesmo user), re-busca silenciosamente mantendo dados atuais
+      if (user.id !== lastUserId.current) {
+        setLoading(true);
+        lastUserId.current = user.id;
+      }
       fetchPermissions();
     } else {
+      lastUserId.current = null;
       setPermissions([]);
       setIsAdmin(false);
       setLoading(false);
