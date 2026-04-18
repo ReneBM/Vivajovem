@@ -261,14 +261,14 @@ export default function InscricaoEventoPublicaPage() {
                         alt=""
                         className="w-full h-full object-cover object-center"
                     />
-                    {/* Overlay de degradê adaptativo */}
+                    {/* Overlay de degradê adaptativo - mais suave no mobile */}
                     <div
                         className="absolute inset-0"
                         style={{
                             background: `linear-gradient(to bottom, 
                                 transparent 0%, 
-                                ${bg}66 40%, 
-                                ${bg}CC 70%, 
+                                transparent 60%, 
+                                ${bg}99 85%, 
                                 ${bg} 100%)`
                         }}
                     />
