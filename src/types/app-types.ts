@@ -40,6 +40,7 @@ export interface InscricaoEvento extends Omit<InscricaoEventoRow, 'campos_person
     eventos?: { data_evento: string; situacao: SituacaoEvento } | null;
     auto_confirmacao_whatsapp: boolean;
     template_confirmacao: string;
+    imagem_capa_mobile_url: string | null;
 }
 
 export interface Grupo {

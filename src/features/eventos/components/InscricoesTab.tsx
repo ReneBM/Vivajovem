@@ -86,6 +86,7 @@ export default function InscricoesTab() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteRespostaId, setDeleteRespostaId] = useState<string | null>(null);
     const [uploadingCapa, setUploadingCapa] = useState(false);
+    const [uploadingCapaMobile, setUploadingCapaMobile] = useState(false);
     const [uploadingTitulo, setUploadingTitulo] = useState(false);
 
     // View inscritos
@@ -104,6 +105,7 @@ export default function InscricoesTab() {
         cor_primaria: '#D4A017',
         cor_fundo: '#0F0F0F',
         imagem_capa_url: '',
+        imagem_capa_mobile_url: '',
         imagem_titulo_url: '',
         max_vagas: '',
         data_limite: '',
@@ -255,6 +257,7 @@ export default function InscricoesTab() {
             cor_primaria: '#D4A017',
             cor_fundo: '#0F0F0F',
             imagem_capa_url: '',
+            imagem_capa_mobile_url: '',
             imagem_titulo_url: '',
             max_vagas: '',
             data_limite: '',
@@ -287,7 +290,26 @@ export default function InscricoesTab() {
         finally { setUploadingCapa(false); }
     }
 
+    async function handleMobileCapaUpload(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem válida'); return; }
+        if (file.size > 5 * 1024 * 1024) { toast.error('A imagem deve ter no máximo 5MB'); return; }
+        setUploadingCapaMobile(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `eventos-capa-mobile/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+            if (uploadError) throw uploadError;
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+            setFormData(prev => ({ ...prev, imagem_capa_mobile_url: publicUrl }));
+            toast.success('Capa mobile enviada!');
+        } catch (error) { console.error('Error uploading capa mobile:', error); toast.error('Erro ao enviar imagem'); }
+        finally { setUploadingCapaMobile(false); }
+    }
+
     function handleCapaRemove() { setFormData(prev => ({ ...prev, imagem_capa_url: '' })); }
+    function handleMobileCapaRemove() { setFormData(prev => ({ ...prev, imagem_capa_mobile_url: '' })); }
 
     async function handleTituloUpload(event: React.ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
@@ -320,6 +342,7 @@ export default function InscricoesTab() {
             cor_primaria: insc.cor_primaria,
             cor_fundo: insc.cor_fundo,
             imagem_capa_url: insc.imagem_capa_url || '',
+            imagem_capa_mobile_url: insc.imagem_capa_mobile_url || '',
             imagem_titulo_url: insc.imagem_titulo_url || '',
             max_vagas: insc.max_vagas?.toString() || '',
             data_limite: insc.data_limite ? new Date(insc.data_limite).toISOString().slice(0, 16) : '',
@@ -345,6 +368,7 @@ export default function InscricoesTab() {
                 cor_primaria: formData.cor_primaria,
                 cor_fundo: formData.cor_fundo,
                 imagem_capa_url: formData.imagem_capa_url || null,
+                imagem_capa_mobile_url: formData.imagem_capa_mobile_url || null,
                 imagem_titulo_url: formData.imagem_titulo_url || null,
                 max_vagas: formData.max_vagas ? parseInt(formData.max_vagas) : null,
                 data_limite: formData.data_limite ? new Date(formData.data_limite).toISOString() : null,
@@ -470,6 +494,7 @@ export default function InscricoesTab() {
                         isEditing={!!editing}
                         isSubmitting={isSubmitting}
                         uploadingCapa={uploadingCapa}
+                        uploadingCapaMobile={uploadingCapaMobile}
                         uploadingTitulo={uploadingTitulo}
                         customFieldLabel={customFieldLabel}
                         setCustomFieldLabel={setCustomFieldLabel}
@@ -477,6 +502,8 @@ export default function InscricoesTab() {
                         onCancel={() => { setIsDialogOpen(false); resetForm(); }}
                         onCapaUpload={handleCapaUpload}
                         onCapaRemove={handleCapaRemove}
+                        onMobileCapaUpload={handleMobileCapaUpload}
+                        onMobileCapaRemove={handleMobileCapaRemove}
                         onTituloUpload={handleTituloUpload}
                         onTituloRemove={handleTituloRemove}
                         onToggleField={toggleField}

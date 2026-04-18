@@ -56,6 +56,7 @@ interface InscricaoFormData {
     cor_primaria: string;
     cor_fundo: string;
     imagem_capa_url: string;
+    imagem_capa_mobile_url: string;
     imagem_titulo_url: string;
     max_vagas: string;
     data_limite: string;
@@ -76,6 +77,7 @@ interface InscricaoFormStepsProps {
     isEditing: boolean;
     isSubmitting: boolean;
     uploadingCapa: boolean;
+    uploadingCapaMobile: boolean;
     uploadingTitulo: boolean;
     customFieldLabel: string;
     setCustomFieldLabel: (label: string) => void;
@@ -84,6 +86,8 @@ interface InscricaoFormStepsProps {
     onCancel: () => void;
     onCapaUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onCapaRemove: () => void;
+    onMobileCapaUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onMobileCapaRemove: () => void;
     onTituloUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onTituloRemove: () => void;
     onToggleField: (id: string) => void;
@@ -104,6 +108,7 @@ export default function InscricaoFormSteps({
     isEditing,
     isSubmitting,
     uploadingCapa,
+    uploadingCapaMobile,
     uploadingTitulo,
     customFieldLabel,
     setCustomFieldLabel,
@@ -111,6 +116,8 @@ export default function InscricaoFormSteps({
     onCancel,
     onCapaUpload,
     onCapaRemove,
+    onMobileCapaUpload,
+    onMobileCapaRemove,
     onTituloUpload,
     onTituloRemove,
     onToggleField,
@@ -120,6 +127,7 @@ export default function InscricaoFormSteps({
     generateSlug,
 }: InscricaoFormStepsProps) {
     const capaInputRef = useRef<HTMLInputElement>(null);
+    const capaMobileInputRef = useRef<HTMLInputElement>(null);
     const tituloInputRef = useRef<HTMLInputElement>(null);
 
     return (
@@ -286,13 +294,13 @@ export default function InscricaoFormSteps({
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Image className="w-4 h-4" /> Imagem de capa</Label>
+                        <Label className="flex items-center gap-2"><Image className="w-4 h-4" /> Imagem de capa (Desktop)</Label>
                         <input ref={capaInputRef} type="file" accept="image/*" onChange={onCapaUpload} className="hidden" />
                         {formData.imagem_capa_url ? (
                             <div className="relative rounded-lg overflow-hidden border border-border">
                                 <img src={formData.imagem_capa_url} alt="Capa" className="w-full h-36 object-cover" />
                                 <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 rounded-full" onClick={onCapaRemove}>
-                                    <X className="h-3 h-3" />
+                                    <X className="h-4 h-4" />
                                 </Button>
                             </div>
                         ) : (
@@ -307,8 +315,38 @@ export default function InscricaoFormSteps({
                                 ) : (
                                     <>
                                         <Upload className="w-6 h-6" />
-                                        <span className="text-sm">Clique para enviar imagem de capa</span>
-                                        <span className="text-xs">JPEG, PNG ou WebP • Máx. 5MB • Recomendado: 1200×400px</span>
+                                        <span className="text-sm">Clique para enviar imagem de capa (Horizontal)</span>
+                                        <span className="text-xs">Recomendado: 1200×400px</span>
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Image className="w-4 h-4" /> Imagem de capa (Mobile - Opcional)</Label>
+                        <input ref={capaMobileInputRef} type="file" accept="image/*" onChange={onMobileCapaUpload} className="hidden" />
+                        {formData.imagem_capa_mobile_url ? (
+                            <div className="relative rounded-lg overflow-hidden border border-border flex justify-center bg-black/20 py-2">
+                                <img src={formData.imagem_capa_mobile_url} alt="Capa Mobile" className="h-48 w-auto object-contain rounded shadow-lg" />
+                                <Button type="button" variant="destructive" size="icon" className="absolute top-4 right-4 h-7 w-7 rounded-full" onClick={onMobileCapaRemove}>
+                                    <X className="h-4 h-4" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => capaMobileInputRef.current?.click()}
+                                disabled={uploadingCapaMobile}
+                                className="w-full h-36 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                {uploadingCapaMobile ? (
+                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Upload className="w-6 h-6" />
+                                        <span className="text-sm">Clique para enviar imagem para Mobile (Vertical)</span>
+                                        <span className="text-xs">Recomendado: 1080×1920px (9:16)</span>
                                     </>
                                 )}
                             </button>

@@ -61,11 +61,21 @@ export default function InscricaoEventoPublicaPage() {
     const { slug } = useParams<{ slug: string }>();
     const [inscricao, setInscricao] = useState<InscricaoData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [formData, setFormData] = useState<Record<string, string>>({});
     const [totalInscritos, setTotalInscritos] = useState(0);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         if (slug) fetchInscricao();
@@ -244,10 +254,10 @@ export default function InscricaoEventoPublicaPage() {
         <div className="relative min-h-screen" style={{ backgroundColor: bg }}>
             {/* Background image — cobre toda a página */}
             {/* Background image — layout responsivo adaptativo */}
-            {inscricao.imagem_capa_url && (
+            {(inscricao.imagem_capa_url || inscricao.imagem_capa_mobile_url) && (
                 <div className="absolute sm:fixed inset-0 top-0 h-[50vh] sm:h-full z-0 overflow-hidden">
                     <img
-                        src={inscricao.imagem_capa_url}
+                        src={(isMobile && inscricao.imagem_capa_mobile_url) ? inscricao.imagem_capa_mobile_url : (inscricao.imagem_capa_url || '')}
                         alt=""
                         className="w-full h-full object-cover object-center"
                     />
