@@ -26,7 +26,8 @@ import {
     Heart,
     Instagram,
     AlertTriangle,
-    CreditCard
+    CreditCard,
+    Download
 } from 'lucide-react';
 
 import { format, parseISO } from 'date-fns';
@@ -248,6 +249,34 @@ export default function InscricaoEventoPublicaPage() {
                     <img src={inscricao.imagem_capa_url} alt="" className="w-full h-full object-cover" />
                     <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 20%, ${bg}99 50%, ${bg}E6 75%, ${bg})` }} />
                 </div>
+            )}
+
+            {/* Download button */}
+            {inscricao.imagem_capa_url && (
+                <button
+                    onClick={async () => {
+                        try {
+                            const response = await fetch(inscricao.imagem_capa_url!);
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${inscricao.titulo || 'imagem'}.jpg`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        } catch {
+                            window.open(inscricao.imagem_capa_url!, '_blank');
+                        }
+                    }}
+                    className="fixed top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 rounded-full border border-white/15 backdrop-blur-md text-white/70 hover:text-white hover:border-white/30 transition-all text-sm"
+                    style={{ backgroundColor: `${bg}80` }}
+                    title="Baixar imagem"
+                >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Salvar imagem</span>
+                </button>
             )}
 
             {/* Content overlay */}
