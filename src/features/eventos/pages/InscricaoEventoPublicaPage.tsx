@@ -245,7 +245,7 @@ export default function InscricaoEventoPublicaPage() {
             {/* Background image — cobre toda a página */}
             {inscricao.imagem_capa_url && (
                 <div className="fixed inset-0 z-0">
-                    <img src={inscricao.imagem_capa_url} alt="" className="w-full h-full object-cover" />
+                    <img src={inscricao.imagem_capa_url} alt="" className="w-full h-full object-cover object-top sm:object-center" />
                     <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 20%, ${bg}99 50%, ${bg}E6 75%, ${bg})` }} />
                 </div>
             )}
