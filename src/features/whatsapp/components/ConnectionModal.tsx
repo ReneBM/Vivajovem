@@ -61,7 +61,6 @@ export default function ConnectionModal({ open, onOpenChange, onSuccess, config 
         try {
             // 1. Criar na Evolution API
             const result = await service.createInstance(instanceName);
-            console.log('Resultado createInstance:', result);
 
             // 2. Salvar no Supabase
             const newInstance = await repository.saveInstance({
@@ -75,7 +74,6 @@ export default function ConnectionModal({ open, onOpenChange, onSuccess, config 
 
             // 3. Buscar QR Code via endpoint connect
             const qrResult = await service.getQRCode(instanceName);
-            console.log('Resultado getQRCode:', qrResult);
 
             // O QR pode vir em diferentes formatos na v2
             const base64QR = qrResult?.base64 || qrResult?.qrcode?.base64 || qrResult?.code;
@@ -105,7 +103,6 @@ export default function ConnectionModal({ open, onOpenChange, onSuccess, config 
             interval = setInterval(async () => {
                 try {
                     const state = await service.getConnectionStatus(instanceName);
-                    console.log('Polling status:', state);
 
                     // Evolution API v2 retorna instance.state OU connectionStatus
                     const connectionState = state?.instance?.state || state?.connectionStatus || state?.state;
@@ -126,8 +123,8 @@ export default function ConnectionModal({ open, onOpenChange, onSuccess, config 
                         onSuccess();
                         setTimeout(() => onOpenChange(false), 2000);
                     }
-                } catch (e) {
-                    console.log('Polling erro (normal):', e);
+                } catch {
+                    // Erro esperado durante polling — silencioso
                 }
             }, 3000);
         }

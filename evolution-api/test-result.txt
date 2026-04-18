@@ -1,0 +1,7 @@
+=== Connection State ===
+Status: 404
+{"status":404,"error":"Not Found","response":{"message":["The \"VivaJovem\" instance does not exist"]}}
+
+=== Fetch Instances ===
+Status: 200
+[{"id":"cbab50f5-341f-49ad-bb48-306056401025","name":"Teste","connectionStatus":"open","ownerJid":"556194179121@s.whatsapp.net","profileName":"Renê Barros - NewTime","profilePicUrl":"https://pps.whatsapp.net/v/t61.24694-24/527235494_24391720987124249_4984017481670697713_n.jpg?ccb=11-4&oh=01_Q5Aa3wFg8XRhAqP8_k_pWFA9utDSEKvq-T9ZUuA5mFc1VFERpQ&oe=69B2242D&_nc_sid=5e03e0&_nc_cat=109","integration":"WHATSAPP-BAILEYS","number":null,"businessId":null,"token":"6BEB23D9-F8D9-46A6-8E92-F17E3510370B","clientName":"evolution","disconnectionReasonCode":null,"disconnectionObject":null,"disconnectionAt":null,"createdAt":"2026-03-02T03:40:40.532Z","updatedAt":"2026-03-02T03:41:13.048Z","Chatwoot":null,"Proxy":null,"Rabbitmq":null,"Nats":null,"Sqs":null,"Websocket":null,"Setting":{"id":"cmm8msoxj0009vgewwcmda6mr","rejectCall":false,"msgCall":"","groupsIgnore":false,"alwaysOnline":false,"readMessages":false,"readStatus":false,"syncFullHistory":false,"wavoipToken":"","createdAt":"2026-03-02T03:40:40.938Z","updatedAt":"2026-03-02T03:40:40.938Z","instanceId":"cbab50f5-341f-49ad-bb48-306056401025"},"_count":{"Message":20103,"Contact":1414,"Chat":899}}]

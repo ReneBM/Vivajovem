@@ -24,6 +24,14 @@ import {
   UserCog,
   MessageCircle,
   Shield,
+  DollarSign,
+  Receipt,
+  Wallet,
+  Package,
+  Target,
+  Landmark,
+  CreditCard,
+  ClipboardList,
 } from 'lucide-react';
 import { useState } from 'react';
 import sloganImage from '@/assets/slogan-somosum.png';
@@ -41,10 +49,17 @@ interface NavItem {
   permission?: string;
 }
 
+interface NavSubGroup {
+  label: string;
+  icon: React.ElementType;
+  items: NavItem[];
+}
+
 interface NavModule {
   name: string;
   icon: React.ElementType;
   items: NavItem[];
+  subGroups?: NavSubGroup[];
   /** Prefixo de permissão do módulo (ex: 'cadastro', 'eventos') */
   permissionPrefix?: string;
 }
@@ -88,6 +103,28 @@ const modules: NavModule[] = [
     ],
   },
   {
+    name: 'Financeiro',
+    icon: DollarSign,
+    permissionPrefix: 'financeiro',
+    items: [
+      { name: 'Lançamentos', href: '/financeiro/lancamentos', icon: Receipt, permission: 'financeiro.lancamentos.visualizar' },
+      { name: 'Caixa', href: '/financeiro/caixa', icon: Wallet, permission: 'financeiro.caixa.visualizar' },
+    ],
+    subGroups: [
+      {
+        label: 'Cadastro',
+        icon: ClipboardList,
+        items: [
+          { name: 'Produtos', href: '/financeiro/produtos', icon: Package, permission: 'financeiro.produtos.visualizar' },
+          { name: 'Centros de Custo', href: '/financeiro/centros-custo', icon: Target, permission: 'financeiro.centros_custo.visualizar' },
+          { name: 'Contas Bancárias', href: '/financeiro/contas-bancarias', icon: Landmark, permission: 'financeiro.contas_bancarias.visualizar' },
+          { name: 'Planos de Conta', href: '/financeiro/planos-conta', icon: FileText, permission: 'financeiro.planos_conta.visualizar' },
+          { name: 'Formas de Pagamento', href: '/financeiro/formas-pagamento', icon: CreditCard, permission: 'financeiro.formas_pagamento.visualizar' },
+        ],
+      },
+    ],
+  },
+  {
     name: 'Segurança',
     icon: Shield,
     permissionPrefix: 'seguranca',
@@ -123,11 +160,15 @@ export default function Sidebar() {
     .map((m) => ({
       ...m,
       items: m.items.filter(canSeeItem),
+      subGroups: m.subGroups?.map(sg => ({ ...sg, items: sg.items.filter(canSeeItem) })).filter(sg => sg.items.length > 0),
     }))
-    .filter((m) => m.items.length > 0);
+    .filter((m) => m.items.length > 0 || (m.subGroups && m.subGroups.length > 0));
 
   // Filtrar itens standalone por permissão
   const filteredStandaloneItems = standaloneItems.filter(canSeeItem);
+
+  const [openSubGroups, setOpenSubGroups] = useState<string[]>([]);
+  const toggleSubGroup = (key: string) => setOpenSubGroups(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
   const handleNavClick = () => {
     if (window.innerWidth < 1024) {
@@ -155,7 +196,8 @@ export default function Sidebar() {
   };
 
   const isModuleActive = (module: NavModule) =>
-    module.items.some((item) => location.pathname === item.href);
+    module.items.some((item) => location.pathname === item.href) ||
+    (module.subGroups?.some(sg => sg.items.some(i => location.pathname === i.href)) ?? false);
 
   return (
     <>
@@ -283,6 +325,41 @@ export default function Sidebar() {
                             <item.icon className={cn('w-4 h-4 shrink-0', isActive && 'text-sidebar-primary-foreground')} />
                             <span>{item.name}</span>
                           </NavLink>
+                        );
+                      })}
+                      {/* Sub-groups (nested dropdown) */}
+                      {module.subGroups?.map((sg) => {
+                        const sgKey = `${module.name}-${sg.label}`;
+                        const sgActive = sg.items.some(i => location.pathname === i.href);
+                        return (
+                          <Collapsible key={sgKey} open={openSubGroups.includes(sgKey) || sgActive} onOpenChange={() => toggleSubGroup(sgKey)}>
+                            <CollapsibleTrigger asChild>
+                              <button className={cn(
+                                'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                                sgActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                              )}>
+                                <div className="flex items-center gap-3">
+                                  <sg.icon className="w-4 h-4 shrink-0" />
+                                  <span>{sg.label}</span>
+                                </div>
+                                <ChevronDown className={cn('w-3 h-3 transition-transform', (openSubGroups.includes(sgKey) || sgActive) && 'rotate-180')} />
+                              </button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-1 ml-4 space-y-1">
+                              {sg.items.map((item) => {
+                                const isActive = location.pathname === item.href;
+                                return (
+                                  <NavLink key={item.href} to={item.href} className={cn(
+                                    'flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                                    isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-accent' : 'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                                  )} onClick={handleNavClick}>
+                                    <item.icon className={cn('w-3.5 h-3.5 shrink-0', isActive && 'text-sidebar-primary-foreground')} />
+                                    <span>{item.name}</span>
+                                  </NavLink>
+                                );
+                              })}
+                            </CollapsibleContent>
+                          </Collapsible>
                         );
                       })}
                     </CollapsibleContent>

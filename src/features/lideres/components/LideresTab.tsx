@@ -51,7 +51,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ImageUpload } from '@/components/shared/ImageUpload';
-import { FichaLider } from '@/components/diretoria/FichaLider';
+import { FichaLider } from '@/features/lideres/components/FichaLider';
 import { formatPhoneNumber } from '@/lib/formatters';
 
 interface Lider {

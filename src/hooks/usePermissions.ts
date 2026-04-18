@@ -106,6 +106,19 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     ],
   },
   {
+    key: 'financeiro',
+    label: 'Financeiro',
+    resources: [
+      { key: 'lancamentos', label: 'Lançamentos', actions: [...ACTIONS_CRUD] },
+      { key: 'caixa', label: 'Caixa', actions: [{ key: 'visualizar', label: 'Visualizar' }] },
+      { key: 'produtos', label: 'Produtos', actions: [...ACTIONS_CRUD] },
+      { key: 'centros_custo', label: 'Centros de Custo', actions: [...ACTIONS_CRUD] },
+      { key: 'contas_bancarias', label: 'Contas Bancárias', actions: [...ACTIONS_CRUD] },
+      { key: 'planos_conta', label: 'Planos de Conta', actions: [...ACTIONS_CRUD] },
+      { key: 'formas_pagamento', label: 'Formas de Pagamento', actions: [...ACTIONS_CRUD] },
+    ],
+  },
+  {
     key: 'seguranca',
     label: 'Segurança',
     resources: [
