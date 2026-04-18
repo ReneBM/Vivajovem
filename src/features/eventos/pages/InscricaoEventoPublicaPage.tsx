@@ -243,10 +243,25 @@ export default function InscricaoEventoPublicaPage() {
     return (
         <div className="relative min-h-screen" style={{ backgroundColor: bg }}>
             {/* Background image — cobre toda a página */}
+            {/* Background image — layout responsivo adaptativo */}
             {inscricao.imagem_capa_url && (
-                <div className="fixed inset-0 z-0">
-                    <img src={inscricao.imagem_capa_url} alt="" className="w-full h-full object-cover object-top sm:object-center" />
-                    <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 20%, ${bg}99 50%, ${bg}E6 75%, ${bg})` }} />
+                <div className="absolute sm:fixed inset-0 top-0 h-[50vh] sm:h-full z-0 overflow-hidden">
+                    <img
+                        src={inscricao.imagem_capa_url}
+                        alt=""
+                        className="w-full h-full object-cover object-center"
+                    />
+                    {/* Overlay de degradê adaptativo */}
+                    <div
+                        className="absolute inset-0"
+                        style={{
+                            background: `linear-gradient(to bottom, 
+                                transparent 0%, 
+                                ${bg}66 40%, 
+                                ${bg}CC 70%, 
+                                ${bg} 100%)`
+                        }}
+                    />
                 </div>
             )}
 
