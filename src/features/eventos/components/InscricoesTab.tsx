@@ -55,6 +55,15 @@ import { FieldConfig, InscricaoEvento, RespostaInscricao, Evento, EventoRecorren
 
 type Resposta = RespostaInscricao;
 
+function parseCampos(raw: unknown, fallback: FieldConfig[]): FieldConfig[] {
+    if (!raw) return fallback;
+    if (Array.isArray(raw)) return raw as FieldConfig[];
+    if (typeof raw === 'string') {
+        try { return JSON.parse(raw) as FieldConfig[]; } catch { return fallback; }
+    }
+    return fallback;
+}
+
 const DEFAULT_FIELDS: FieldConfig[] = [
     { id: 'nome', label: 'Nome completo', type: 'text', required: true, enabled: true, placeholder: 'Digite seu nome completo', icon: 'user' },
     { id: 'telefone', label: 'Telefone (WhatsApp)', type: 'tel', required: false, enabled: true, placeholder: '(00) 00000-0000', icon: 'phone' },
@@ -142,7 +151,7 @@ export default function InscricoesTab() {
 
             const fetched = (data || []).map((d: any) => ({
                 ...d,
-                campos_personalizados: (d.campos_personalizados || DEFAULT_FIELDS) as unknown as FieldConfig[],
+                campos_personalizados: parseCampos(d.campos_personalizados, DEFAULT_FIELDS),
             } as unknown as InscricaoEvento));
 
             // Auto-finalization logic
@@ -170,7 +179,7 @@ export default function InscricoesTab() {
                 const { data: updatedData } = await supabase.from('inscricoes_evento').select('*').order('created_at', { ascending: false });
                 setInscricoes((updatedData || []).map((d: any) => ({
                     ...d,
-                    campos_personalizados: (d.campos_personalizados || DEFAULT_FIELDS) as unknown as FieldConfig[],
+                    campos_personalizados: parseCampos(d.campos_personalizados, DEFAULT_FIELDS),
                 } as unknown as InscricaoEvento)));
             } else {
                 setInscricoes(fetched);

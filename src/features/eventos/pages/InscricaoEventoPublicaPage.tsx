@@ -48,6 +48,15 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     heart: <Heart className="w-4 h-4" />,
 };
 
+function parseCampos(raw: unknown): FieldConfig[] {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as FieldConfig[];
+    if (typeof raw === 'string') {
+        try { return JSON.parse(raw) as FieldConfig[]; } catch { return []; }
+    }
+    return [];
+}
+
 export default function InscricaoEventoPublicaPage() {
     const { slug } = useParams<{ slug: string }>();
     const [inscricao, setInscricao] = useState<InscricaoData | null>(null);
@@ -79,7 +88,7 @@ export default function InscricaoEventoPublicaPage() {
             const row = data as any;
             const inscData: InscricaoData = {
                 ...row,
-                campos_personalizados: (row.campos_personalizados || []) as unknown as FieldConfig[],
+                campos_personalizados: parseCampos(row.campos_personalizados),
             };
             setInscricao(inscData);
 
