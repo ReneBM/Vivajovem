@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowRight, Loader2, ShieldAlert } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, ShieldAlert, Mail, CheckCircle2 } from 'lucide-react';
 import { z } from 'zod';
 import sloganImage from '@/assets/slogan-somosum.png';
 
@@ -27,6 +28,12 @@ export default function Auth() {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +124,38 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!forgotEmail.trim()) {
+      toast.error('Digite seu email');
+      return;
+    }
+
+    const emailCheck = z.string().email().safeParse(forgotEmail);
+    if (!emailCheck.success) {
+      toast.error('Digite um email válido');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setForgotSent(true);
+    } catch (err: any) {
+      // Supabase returns success even for non-existent emails (security best practice)
+      // So we show success regardless to not reveal if email exists
+      setForgotSent(true);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
@@ -144,81 +183,195 @@ export default function Auth() {
           </div>
 
           <Card className="border-border/50 shadow-xl animate-scale-in bg-card">
-            <CardHeader className="space-y-1 text-center pb-6">
-              <CardTitle className="text-2xl font-display text-foreground">
-                Bem-vindo de volta!
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                Entre com suas credenciais para acessar o sistema
-              </CardDescription>
-            </CardHeader>
+            {/* ===== FORGOT PASSWORD VIEW ===== */}
+            {showForgotPassword ? (
+              <>
+                <CardHeader className="space-y-1 text-center pb-6">
+                  <CardTitle className="text-2xl font-display text-foreground">
+                    {forgotSent ? 'Email enviado!' : 'Recuperar senha'}
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    {forgotSent
+                      ? 'Verifique sua caixa de entrada e spam'
+                      : 'Digite seu email para receber o link de redefinição'}
+                  </CardDescription>
+                </CardHeader>
 
-            <CardContent>
-              {isLockedOut && (
-                <div className="flex items-center gap-3 p-3 mb-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <ShieldAlert className="w-5 h-5 text-destructive shrink-0" />
-                  <p className="text-sm text-destructive">
-                    Muitas tentativas. Aguarde <strong>{lockoutRemaining}s</strong> para tentar novamente.
-                  </p>
-                </div>
-              )}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={errors.email ? 'border-destructive' : ''}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={errors.password ? 'border-destructive' : ''}
-                  />
-                  {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  variant="hero"
-                  size="lg"
-                  disabled={isLoading || isLockedOut}
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : isLockedOut ? (
-                    <>
-                      <ShieldAlert className="w-4 h-4" />
-                      Bloqueado ({lockoutRemaining}s)
-                    </>
+                <CardContent>
+                  {forgotSent ? (
+                    <div className="space-y-6">
+                      <div className="flex flex-col items-center gap-4 py-4">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <CheckCircle2 className="w-8 h-8 text-primary" />
+                        </div>
+                        <div className="text-center space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            Se o email <strong className="text-foreground">{forgotEmail}</strong> estiver cadastrado,
+                            você receberá um link para redefinir sua senha.
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            O link expira em 1 hora.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setForgotSent(false);
+                          setForgotEmail('');
+                        }}
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Voltar ao login
+                      </Button>
+                    </div>
                   ) : (
-                    <>
-                      Entrar
-                      <ArrowRight className="w-4 h-4" />
-                    </>
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="forgot-email">Email</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="forgot-email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={forgotEmail}
+                            onChange={(e) => setForgotEmail(e.target.value)}
+                            className="pl-10"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        variant="hero"
+                        size="lg"
+                        disabled={forgotLoading}
+                      >
+                        {forgotLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            Enviar link de redefinição
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full text-muted-foreground"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setForgotEmail('');
+                        }}
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Voltar ao login
+                      </Button>
+                    </form>
                   )}
-                </Button>
-              </form>
-            </CardContent>
+                </CardContent>
+              </>
+            ) : (
+              <>
+                {/* ===== LOGIN VIEW ===== */}
+                <CardHeader className="space-y-1 text-center pb-6">
+                  <CardTitle className="text-2xl font-display text-foreground">
+                    Bem-vindo de volta!
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Entre com suas credenciais para acessar o sistema
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                  {isLockedOut && (
+                    <div className="flex items-center gap-3 p-3 mb-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <ShieldAlert className="w-5 h-5 text-destructive shrink-0" />
+                      <p className="text-sm text-destructive">
+                        Muitas tentativas. Aguarde <strong>{lockoutRemaining}s</strong> para tentar novamente.
+                      </p>
+                    </div>
+                  )}
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={errors.email ? 'border-destructive' : ''}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Senha</Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowForgotPassword(true);
+                            setForgotEmail(email);
+                          }}
+                          className="text-xs text-primary hover:text-primary/80 hover:underline transition-colors"
+                        >
+                          Esqueceu a senha?
+                        </button>
+                      </div>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={errors.password ? 'border-destructive' : ''}
+                      />
+                      {errors.password && (
+                        <p className="text-sm text-destructive">{errors.password}</p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      variant="hero"
+                      size="lg"
+                      disabled={isLoading || isLockedOut}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isLockedOut ? (
+                        <>
+                          <ShieldAlert className="w-4 h-4" />
+                          Bloqueado ({lockoutRemaining}s)
+                        </>
+                      ) : (
+                        <>
+                          Entrar
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </>
+            )}
           </Card>
         </div>
       </div>
     </div>
   );
 }
+

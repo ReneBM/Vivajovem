@@ -10,6 +10,7 @@ import RoleGuard from "@/features/auth/components/RoleGuard";
 // Pages
 import Index from "./pages/Index";
 import Auth from "@/features/auth/pages/LoginPage";
+import ResetPassword from "@/features/auth/pages/ResetPasswordPage";
 import Dashboard from "@/features/dashboard/pages/DashboardPage";
 import Jovens from "@/features/jovens/pages/JovensPage";
 import JovensVisitantes from "@/features/jovens/pages/VisitantesPage";
@@ -28,6 +29,13 @@ import Marketing from "@/features/marketing/pages/MarketingPage";
 import WhatsappManager from "@/features/whatsapp/pages/EvolutionManagerPage";
 import Funcoes from "@/features/funcoes/pages/FuncoesPage";
 import Perfil from "@/features/configuracoes/pages/PerfilPage";
+import FinLancamentos from "@/features/financeiro/pages/LancamentosPage";
+import FinCaixa from "@/features/financeiro/pages/CaixaPage";
+import FinProdutos from "@/features/financeiro/pages/ProdutosPage";
+import FinCentrosCusto from "@/features/financeiro/pages/CentrosCustoPage";
+import FinContasBancarias from "@/features/financeiro/pages/ContasBancariasPage";
+import FinPlanosContas from "@/features/financeiro/pages/PlanosContaPage";
+import FinFormasPagamento from "@/features/financeiro/pages/FormasPagamentoPage";
 import NotFound from "./pages/NotFound";
 
 // Layout
@@ -45,6 +53,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Public inscription pages */}
             <Route path="/campanha/:slug" element={<ErrorBoundary><InscricaoCampanha /></ErrorBoundary>} />
@@ -68,6 +77,14 @@ const App = () => (
               <Route path="/whatsapp" element={<RoleGuard requiredPermission="marketing.instancias.visualizar"><WhatsappManager /></RoleGuard>} />
               <Route path="/funcoes" element={<RoleGuard requiredPermission="seguranca.funcoes.visualizar"><Funcoes /></RoleGuard>} />
               <Route path="/perfil" element={<RoleGuard requiredPermission="seguranca.perfil.visualizar"><Perfil /></RoleGuard>} />
+              {/* Financeiro */}
+              <Route path="/financeiro/lancamentos" element={<RoleGuard requiredPermission="financeiro.lancamentos.visualizar"><FinLancamentos /></RoleGuard>} />
+              <Route path="/financeiro/caixa" element={<RoleGuard requiredPermission="financeiro.caixa.visualizar"><FinCaixa /></RoleGuard>} />
+              <Route path="/financeiro/produtos" element={<RoleGuard requiredPermission="financeiro.produtos.visualizar"><FinProdutos /></RoleGuard>} />
+              <Route path="/financeiro/centros-custo" element={<RoleGuard requiredPermission="financeiro.centros_custo.visualizar"><FinCentrosCusto /></RoleGuard>} />
+              <Route path="/financeiro/contas-bancarias" element={<RoleGuard requiredPermission="financeiro.contas_bancarias.visualizar"><FinContasBancarias /></RoleGuard>} />
+              <Route path="/financeiro/planos-conta" element={<RoleGuard requiredPermission="financeiro.planos_conta.visualizar"><FinPlanosContas /></RoleGuard>} />
+              <Route path="/financeiro/formas-pagamento" element={<RoleGuard requiredPermission="financeiro.formas_pagamento.visualizar"><FinFormasPagamento /></RoleGuard>} />
             </Route>
 
             {/* Catch-all */}
