@@ -277,7 +277,7 @@ export default function InscricoesTab() {
         setUploadingCapa(true);
         try {
             const fileExt = file.name.split('.').pop();
-            const fileName = `eventos - capa / ${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
+            const fileName = `eventos-capa/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
             if (uploadError) throw uploadError;
             const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
@@ -297,7 +297,7 @@ export default function InscricoesTab() {
         setUploadingTitulo(true);
         try {
             const fileExt = file.name.split('.').pop();
-            const fileName = `eventos - titulo / ${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
+            const fileName = `eventos-titulo/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
             if (uploadError) throw uploadError;
             const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
